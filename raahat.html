@@ -1,0 +1,2475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Raahat — Detect Early. Support Better.</title>
+<!-- Served from this repo, not a CDN: the demo has to run on a venue network with no
+     internet (or none that resolves unpkg), and a blocked <script> here means a blank page.
+     Pinned versions live in static/vendor/ — see README "Vendored frontend libraries". -->
+<script src="/static/vendor/react.production.min.js"></script>
+<script src="/static/vendor/react-dom.production.min.js"></script>
+<script src="/static/vendor/babel.min.js"></script>
+<script src="/static/vendor/tailwind.js"></script>
+<style>
+  :root{
+    --v-bg:#FAF6EF; --v-card:#FFFFFF; --v-green:#6E8F71; --v-green-d:#4F6E53; --v-terracotta:#C1694F; --v-blue:#7FA0C2; --v-ink:#33342E;
+    --navy:#152238; --navy-2:#1B2A45; --admin-blue:#1E4B8F; --teal:#2C8C82; --slate:#5B6474;
+    --critical:#B91C1C; --high:#DC2626; --moderate:#EA8C1E; --low:#D4B106; --minimal:#1F9254; --stable:#1F9254;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif; background:#F3F5F8; color:#1c2431; -webkit-font-smoothing:antialiased;}
+  ::-webkit-scrollbar{width:8px;height:8px;}
+  ::-webkit-scrollbar-thumb{background:#d7dce3;border-radius:8px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  .focus-ring:focus-visible{outline:2px solid #2C8C82; outline-offset:2px;}
+  @keyframes fadeIn{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);}}
+  .fade-in{animation:fadeIn .28s ease-out both;}
+  @keyframes popIn{from{opacity:0; transform:scale(.96) translateY(8px);} to{opacity:1; transform:scale(1) translateY(0);}}
+  .pop-in{animation:popIn .22s cubic-bezier(.2,.8,.2,1) both;}
+  @keyframes pulse-ring{0%{box-shadow:0 0 0 0 rgba(220,38,38,.45);}70%{box-shadow:0 0 0 10px rgba(220,38,38,0);}100%{box-shadow:0 0 0 0 rgba(220,38,38,0);}}
+  .pulse{animation:pulse-ring 2s infinite;}
+  @keyframes wave{0%,100%{transform:scaleY(.3);}50%{transform:scaleY(1);}}
+  .wave-bar{animation:wave .9s ease-in-out infinite;}
+  .slide-in-right{animation:slideInRight .28s cubic-bezier(.2,.8,.2,1) both;}
+  @keyframes slideInRight{from{opacity:0; transform:translateX(24px);} to{opacity:1; transform:translateX(0);}}
+  .toast-in{animation:toastIn .25s ease-out both;}
+  @keyframes toastIn{from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:translateY(0);}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/plain" id="app-source">
+
+const { useState, useEffect, useRef, useContext, createContext, useMemo } = React;
+
+/* ============================== ICONS ============================== */
+// Icons are decorative: every control that shows only an icon carries its own aria-label, so
+// the SVG itself is hidden from assistive technology rather than read out as a graphic.
+function Icon({name, size=18, className="", strokeWidth=1.8}) {
+  const s = size;
+  const common = {width:s, height:s, viewBox:"0 0 24 24", fill:"none", stroke:"currentColor", strokeWidth, strokeLinecap:"round", strokeLinejoin:"round", className};
+  const P = {
+    home: <><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/></>,
+    alert: <><path d="M12 3 2 20h20L12 3Z"/><path d="M12 10v4"/><circle cx="12" cy="17" r="0.6" fill="currentColor" stroke="none"/></>,
+    users: <><circle cx="9" cy="8" r="3.2"/><path d="M2.8 20c.6-3.4 3.2-5.5 6.2-5.5s5.6 2.1 6.2 5.5"/><circle cx="17" cy="8.5" r="2.4"/><path d="M15.5 14.7c2.3.3 4 2.1 4.5 4.8"/></>,
+    message: <><path d="M4 5h16v11H8l-4 4V5Z"/></>,
+    search: <><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.3-4.3"/></>,
+    bell: <><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6Z"/><path d="M10 19a2 2 0 0 0 4 0"/></>,
+    chevronRight: <path d="m9 5 7 7-7 7"/>,
+    chevronDown: <path d="m5 8 7 7 7-7"/>,
+    chevronLeft: <path d="m15 19-7-7 7-7"/>,
+    settings: <><circle cx="12" cy="12" r="3"/><path d="M19.4 13.5a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.9 2.9l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.9-2.9l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H4a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.9-2.9l.1.1a1.7 1.7 0 0 0 1.9.3H10a1.7 1.7 0 0 0 1-1.6V4a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.9 2.9l-.1.1a1.7 1.7 0 0 0-.3 1.9v.1a1.7 1.7 0 0 0 1.6 1h.2a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.6 1Z" opacity="0"/></>,
+    gear: <><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2.5 12h3M18.5 12h3M4.9 19.1 7 17M17 7l2.1-2.1"/></>,
+    file: <><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4"/></>,
+    calendar: <><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 9.5h17M8 3v4M16 3v4"/></>,
+    chart: <><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></>,
+    heart: <path d="M12 20.5s-7.5-4.6-9.8-9A5.5 5.5 0 0 1 12 6a5.5 5.5 0 0 1 9.8 5.5c-2.3 4.4-9.8 9-9.8 9Z"/>,
+    leaf: <><path d="M4 20C4 10 10 4 20 4c0 10-6 16-16 16Z"/><path d="M4 20c4-6 8-9 13-12"/></>,
+    shield: <path d="M12 3.5 19 6v6c0 5-3 8.2-7 9.5-4-1.3-7-4.5-7-9.5V6l7-2.5Z"/>,
+    mic: <><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M9 21h6"/></>,
+    volume: <><path d="M4 10v4h4l5 4V6L8 10H4Z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11"/></>,
+    send: <path d="M4 20 21 12 4 4l2 8-2 8Z"/>,
+    check: <path d="m5 12 4.5 4.5L19 7"/>,
+    x: <path d="M6 6l12 12M18 6 6 18"/>,
+    plus: <path d="M12 5v14M5 12h14"/>,
+    phone: <path d="M6.6 10.8a15 15 0 0 0 6.6 6.6l2.2-2.2a1.5 1.5 0 0 1 1.5-.4c1 .3 2.1.5 3.1.5.9 0 1.6.7 1.6 1.6V20c0 .9-.7 1.6-1.6 1.6C10.9 21.6 2.4 13.1 2.4 3.6 2.4 2.7 3.1 2 4 2h3.1c.9 0 1.6.7 1.6 1.6 0 1 .2 2.1.5 3.1.1.5 0 1.1-.4 1.5L6.6 10.8Z"/>,
+    pill: <><rect x="3.5" y="9.5" width="17" height="6" rx="3" transform="rotate(-40 12 12)"/><path d="M8.3 15.6 15.6 8.3" strokeWidth="0"/></>,
+    pin: <><path d="M12 21s7-6.7 7-12a7 7 0 1 0-14 0c0 5.3 7 12 7 12Z"/><circle cx="12" cy="9" r="2.3"/></>,
+    trend: <><path d="M4 16 10 9l4 4 6-8"/><path d="M16 5h4v4"/></>,
+    clock: <><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></>,
+    logout: <><path d="M9 3H5.5A1.5 1.5 0 0 0 4 4.5v15A1.5 1.5 0 0 0 5.5 21H9"/><path d="M14 16.5 20 12l-6-4.5M20 12H9"/></>,
+    back: <path d="m11 4-8 8 8 8M3 12h18"/>,
+    filter: <path d="M4 5h16l-6 8v6l-4-2v-4L4 5Z"/>,
+    download: <><path d="M12 3v13"/><path d="m6 11 6 6 6-6"/><path d="M4 20.5h16"/></>,
+    dots: <><circle cx="5" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.2" fill="currentColor" stroke="none"/></>,
+    sparkle: <><path d="M12 3v4M12 17v4M3 12h4M17 12h4"/><path d="m6 6 2.5 2.5M17.5 17.5 15 15M6 18l2.5-2.5M17.5 6.5 15 9"/></>,
+    book: <><path d="M4 5.5C4 4.7 4.7 4 5.5 4H12v16H5.5A1.5 1.5 0 0 1 4 18.5v-13Z"/><path d="M20 5.5c0-.8-.7-1.5-1.5-1.5H12v16h6.5a1.5 1.5 0 0 0 1.5-1.5v-13Z"/></>,
+    smile: <><circle cx="12" cy="12" r="9"/><path d="M8 13.5s1.5 2 4 2 4-2 4-2M9 9.5h.01M15 9.5h.01"/></>,
+    frown: <><circle cx="12" cy="12" r="9"/><path d="M8 15.5s1.5-2 4-2 4 2 4 2M9 9.5h.01M15 9.5h.01"/></>,
+    meh: <><circle cx="12" cy="12" r="9"/><path d="M8 14.5h8M9 9.5h.01M15 9.5h.01"/></>,
+    grid: <><rect x="3.5" y="3.5" width="7" height="7" rx="1.2"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.2"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.2"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.2"/></>,
+    layers: <><path d="m12 3 9 4.7-9 4.7-9-4.7L12 3Z"/><path d="m3 12.7 9 4.7 9-4.7"/><path d="m3 17.3 9 4.7 9-4.7"/></>,
+    database: <><ellipse cx="12" cy="5.5" rx="7.5" ry="2.5"/><path d="M4.5 5.5V18c0 1.4 3.4 2.5 7.5 2.5s7.5-1.1 7.5-2.5V5.5"/><path d="M4.5 12c0 1.4 3.4 2.5 7.5 2.5s7.5-1.1 7.5-2.5"/></>,
+    map: <><path d="M9 4 3.5 6v14L9 18l6 2 5.5-2V4L15 6l-6-2Z"/><path d="M9 4v14M15 6v14"/></>,
+    briefcase: <><rect x="3" y="7.5" width="18" height="12" rx="1.5"/><path d="M8 7.5V6a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v1.5"/></>,
+    lock: <><rect x="4.5" y="10.5" width="15" height="10" rx="1.8"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></>,
+  };
+  return <svg {...common} aria-hidden="true" focusable="false">{P[name] || null}</svg>;
+}
+
+/* ============================== HELPERS ============================== */
+function riskFromScore(score){
+  if(score<=25) return {label:"Stable", color:"var(--stable)", bg:"#E7F5EC", text:"#166A3D"};
+  if(score<=50) return {label:"Low Risk", color:"var(--low)", bg:"#FBF3D6", text:"#8A6D06"};
+  if(score<=70) return {label:"Moderate Risk", color:"var(--moderate)", bg:"#FCEBD6", text:"#9A5A0D"};
+  if(score<=85) return {label:"High Risk", color:"var(--high)", bg:"#FBDEDE", text:"#A11616"};
+  return {label:"Critical", color:"var(--critical)", bg:"#F7D2D2", text:"#7F0F0F"};
+}
+function clamp(n,min,max){ return Math.max(min, Math.min(max, n)); }
+function fmtDate(d){ return d; }
+// Session token lives only in memory (not localStorage) — a real login is required each time the
+// page loads, which is the point: unlike the old fake login, a stale/no session genuinely can't act.
+let AUTH_TOKEN = null;
+// Set by AppRoot so the api() helper can end the session centrally when the server says the
+// token is gone, instead of every call site silently failing on its own.
+let ON_SESSION_EXPIRED = null;
+
+async function api(path, body, method){
+  const headers = {"Content-Type":"application/json"};
+  if(AUTH_TOKEN) headers.Authorization = "Bearer "+AUTH_TOKEN;
+  const opts = {method: method || (body? "POST":"GET"), headers};
+  if(body) opts.body = JSON.stringify(body);
+  let response;
+  try {
+    response = await fetch(path, opts);
+  } catch {
+    const offline = new Error("Could not reach the server. Check your connection and try again.");
+    offline.status = 0;
+    throw offline;
+  }
+  if(!response.ok){
+    // FastAPI reports the reason in {"detail": ...}; surfacing it means the UI can say
+    // "Too many requests, wait 41s" instead of a generic "Request failed".
+    let detail = "";
+    try {
+      const parsed = await response.json();
+      detail = typeof parsed?.detail === "string" ? parsed.detail
+        : Array.isArray(parsed?.detail) ? (parsed.detail[0]?.msg || "") : "";
+    } catch {}
+    const err = new Error(detail || `Request failed (${response.status})`);
+    err.status = response.status;
+    err.detail = detail;
+    // 401 means the bearer token is expired or revoked: every subsequent call would fail the
+    // same way, so end the session once and send the user back to sign in.
+    if(response.status === 401 && AUTH_TOKEN && ON_SESSION_EXPIRED) ON_SESSION_EXPIRED();
+    throw err;
+  }
+  return response.json();
+}
+async function exportReport(caseId){
+  const headers = AUTH_TOKEN? {Authorization:"Bearer "+AUTH_TOKEN} : {};
+  const response = await fetch(`/api/cases/${caseId}/report`, {headers});
+  if(!response.ok) return;
+  const text = await response.text();
+  const blob = new Blob([text], {type:"text/plain"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = `raahat-case-${caseId}.txt`;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+function shortRisk(band, score){
+  if(band==="Critical" || band==="High" || score>=71) return "High";
+  if(band==="Moderate" || score>=51) return "Moderate";
+  return "Low";
+}
+function relativeTime(value){
+  if(!value) return "Live";
+  const diff = Date.now() - new Date(value).getTime();
+  if(diff < 90_000) return "now";
+  if(diff < 3_600_000) return Math.round(diff/60_000)+"m ago";
+  if(diff < 86_400_000) return Math.round(diff/3_600_000)+"h ago";
+  return Math.round(diff/86_400_000)+"d ago";
+}
+function backendCaseRow(c){
+  // Age/gender are not columns in the backend schema, so they read as unknown rather than
+  // being invented for one particular case id.
+  return {id:c.id, age:c.age ?? "—", gender:c.gender ?? "—", district:c.district, risk:shortRisk(c.risk_band,c.score), score:c.score, concern:c.risk_band+" distress assessment", updated:relativeTime(c.updated_at), status:c.risk_band==="Critical"?"Open":"Monitoring"};
+}
+
+/* ============================== TOAST ============================== */
+const ToastCtx = createContext(null);
+function ToastProvider({children}){
+  const [items,setItems] = useState([]);
+  const push = (msg, kind="default") => {
+    const id = Math.random().toString(36).slice(2);
+    setItems(list=>[...list,{id,msg,kind}]);
+    setTimeout(()=> setItems(list=>list.filter(t=>t.id!==id)), 3200);
+  };
+  return <ToastCtx.Provider value={push}>
+    {children}
+    <div className="fixed bottom-5 right-5 z-[200] flex flex-col gap-2 items-end">
+      {items.map(t=>(
+        <div key={t.id} className={`toast-in px-4 py-3 rounded-xl shadow-lg text-sm font-medium max-w-sm ${t.kind==='error' ? 'bg-red-600 text-white' : t.kind==='success' ? 'bg-emerald-600 text-white' : 'bg-slate-900 text-white'}`}>
+          {t.msg}
+        </div>
+      ))}
+    </div>
+  </ToastCtx.Provider>;
+}
+function useToast(){ return useContext(ToastCtx); }
+
+/* ============================== CHARTS (hand-built SVG) ============================== */
+// A chart needs at least two points to draw a line; with fewer it renders an empty state
+// instead of throwing on pts[pts.length-1], which is what a case with no recorded events
+// now legitimately produces.
+function ChartEmptyState({height, label}){
+  return (
+    <div className="flex items-center justify-center text-xs text-black/35 border border-dashed border-black/10 rounded-xl"
+         style={{height}} role="img" aria-label={label}>
+      {label}
+    </div>
+  );
+}
+
+function DistressLineChart({data, width=640, height=230, showZones=true, weekLabels}){
+  if(!data || data.length < 2) return <ChartEmptyState height={height} label="No recorded check-ins yet — the trend appears after the first check-in."/>;
+  const pad = {l:34,r:14,t:14,b:26};
+  const w = width - pad.l - pad.r, h = height - pad.t - pad.b;
+  const max=100, min=0;
+  const pts = data.map((v,i)=>{
+    const x = pad.l + (i/(data.length-1))*w;
+    const y = pad.t + h - ((v-min)/(max-min))*h;
+    return [x,y];
+  });
+  const path = pts.map((p,i)=> (i===0?`M ${p[0]},${p[1]}`:`L ${p[0]},${p[1]}`)).join(" ");
+  const areaPath = path + ` L ${pts[pts.length-1][0]},${pad.t+h} L ${pts[0][0]},${pad.t+h} Z`;
+  const zones = [
+    {from:86,to:100,color:"#FBE1E1"},{from:71,to:86,color:"#FCE7DA"},{from:51,to:71,color:"#FEF1D6"},
+    {from:26,to:51,color:"#FBF7DE"},{from:0,to:26,color:"#E9F6ED"},
+  ];
+  const yOf = v => pad.t + h - ((v-min)/(max-min))*h;
+  return (
+    <svg width="100%" viewBox={`0 0 ${width} ${height}`} className="overflow-visible">
+      {showZones && zones.map((z,i)=>(
+        <rect key={i} x={pad.l} y={yOf(z.to)} width={w} height={yOf(z.from)-yOf(z.to)} fill={z.color} />
+      ))}
+      {[0,25,50,75,100].map(v=>(
+        <g key={v}>
+          <line x1={pad.l} x2={pad.l+w} y1={yOf(v)} y2={yOf(v)} stroke="#E4E8EE" strokeWidth="1"/>
+          <text x={pad.l-8} y={yOf(v)+3} fontSize="9.5" textAnchor="end" fill="#8A93A3">{v}</text>
+        </g>
+      ))}
+      <defs>
+        <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#1E4B8F" stopOpacity="0.18"/>
+          <stop offset="100%" stopColor="#1E4B8F" stopOpacity="0"/>
+        </linearGradient>
+      </defs>
+      <path d={areaPath} fill="url(#areaGrad)"/>
+      <path d={path} fill="none" stroke="#1E4B8F" strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round"/>
+      {pts.map((p,i)=>(
+        <circle key={i} cx={p[0]} cy={p[1]} r={i===pts.length-1?4.5:2.6} fill={i===pts.length-1?"#DC2626":"#1E4B8F"} stroke="#fff" strokeWidth={i===pts.length-1?2:1}/>
+      ))}
+      {weekLabels && weekLabels.map((lb,i)=>(
+        <text key={i} x={pts[i][0]} y={height-6} fontSize="9.5" textAnchor="middle" fill="#8A93A3">{lb}</text>
+      ))}
+    </svg>
+  );
+}
+
+function BarChartSimple({data, width=360, height=200, barColor}){
+  if(!data || !data.length) return <ChartEmptyState height={height} label="No data yet."/>;
+  const pad={l:28,r:10,t:14,b:22};
+  const w=width-pad.l-pad.r, h=height-pad.t-pad.b;
+  const max = Math.max(...data.map(d=>d.value))*1.15;
+  const bw = w/data.length*0.55;
+  return (
+    <svg width="100%" viewBox={`0 0 ${width} ${height}`}>
+      {[0,0.5,1].map((f,i)=>(
+        <line key={i} x1={pad.l} x2={pad.l+w} y1={pad.t+h*(1-f)} y2={pad.t+h*(1-f)} stroke="#EEF1F5" />
+      ))}
+      {data.map((d,i)=>{
+        const bh = (d.value/max)*h;
+        const cx = pad.l + (i+0.5)*(w/data.length);
+        return (
+          <g key={i}>
+            <rect x={cx-bw/2} y={pad.t+h-bh} width={bw} height={bh} rx="4" fill={d.color||barColor}/>
+            <text x={cx} y={pad.t+h-bh-6} fontSize="11" fontWeight="700" textAnchor="middle" fill="#374151">{d.value}</text>
+            <text x={cx} y={height-5} fontSize="10" textAnchor="middle" fill="#8A93A3">{d.label}</text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+function LineTrendMini({data,width=420,height=170,color="#2C8C82"}){
+  if(!data || data.length < 2) return <ChartEmptyState height={height} label="Not enough data yet."/>;
+  const pad={l:24,r:10,t:14,b:20};
+  const w=width-pad.l-pad.r,h=height-pad.t-pad.b;
+  const max=Math.max(...data.map(d=>d.value))*1.2, min=0;
+  const pts=data.map((d,i)=>{
+    const x=pad.l+(i/(data.length-1))*w;
+    const y=pad.t+h-((d.value-min)/(max-min))*h;
+    return [x,y];
+  });
+  const path=pts.map((p,i)=>(i===0?`M ${p[0]},${p[1]}`:`L ${p[0]},${p[1]}`)).join(" ");
+  return (
+    <svg width="100%" viewBox={`0 0 ${width} ${height}`}>
+      {[0,0.5,1].map((f,i)=>(<line key={i} x1={pad.l} x2={pad.l+w} y1={pad.t+h*(1-f)} y2={pad.t+h*(1-f)} stroke="#EEF1F5"/>))}
+      <path d={path} fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+      {pts.map((p,i)=>(<circle key={i} cx={p[0]} cy={p[1]} r="3" fill={color}/>))}
+      {data.map((d,i)=>(<text key={i} x={pts[i][0]} y={height-4} fontSize="9.5" textAnchor="middle" fill="#8A93A3">{d.label}</text>))}
+    </svg>
+  );
+}
+
+/* ============================== SHARED UI ============================== */
+function RiskBadge({level}){
+  const map = {
+    "High Risk": {bg:"#FBDEDE", text:"#A11616", dot:"var(--high)"},
+    "High": {bg:"#FBDEDE", text:"#A11616", dot:"var(--high)"},
+    "Moderate Risk": {bg:"#FCEBD6", text:"#9A5A0D", dot:"var(--moderate)"},
+    "Moderate": {bg:"#FCEBD6", text:"#9A5A0D", dot:"var(--moderate)"},
+    "Low Risk": {bg:"#FBF3D6", text:"#8A6D06", dot:"var(--low)"},
+    "Low": {bg:"#FBF3D6", text:"#8A6D06", dot:"var(--low)"},
+    "Minimal": {bg:"#E7F5EC", text:"#166A3D", dot:"var(--minimal)"},
+    "Stable": {bg:"#E7F5EC", text:"#166A3D", dot:"var(--stable)"},
+    "Critical": {bg:"#F7D2D2", text:"#7F0F0F", dot:"var(--critical)"},
+  };
+  const s = map[level] || map["Moderate"];
+  return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold" style={{background:s.bg,color:s.text}}>
+    <span className="w-1.5 h-1.5 rounded-full" style={{background:s.dot}}></span>{level}
+  </span>;
+}
+
+function StatusPill({status}){
+  const map = {
+    Open:"bg-blue-100 text-blue-700", "In Progress":"bg-amber-100 text-amber-700",
+    Monitoring:"bg-emerald-100 text-emerald-700", Resolved:"bg-slate-200 text-slate-600",
+  };
+  return <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${map[status]||"bg-slate-100 text-slate-600"}`}>{status}</span>;
+}
+
+function Modal({open,onClose,title,children,width="max-w-md"}){
+  const panelRef = useRef(null);
+  const titleId = useRef("modal-"+Math.random().toString(36).slice(2,9)).current;
+  // Keyboard and screen-reader basics: Escape closes, focus moves into the dialog on open and
+  // returns to whatever opened it on close, and the dialog announces itself with its title.
+  useEffect(()=>{
+    if(!open) return;
+    const previouslyFocused = document.activeElement;
+    const onKey = e => { if(e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", onKey);
+    const focusTarget = panelRef.current?.querySelector("input,textarea,select,button");
+    focusTarget?.focus();
+    return ()=>{
+      document.removeEventListener("keydown", onKey);
+      if(previouslyFocused instanceof HTMLElement) previouslyFocused.focus();
+    };
+  },[open,onClose]);
+  if(!open) return null;
+  return (
+    <div className="fixed inset-0 z-[150] flex items-center justify-center p-4" style={{background:"rgba(15,20,30,.45)"}} onMouseDown={onClose}>
+      <div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby={titleId}
+           className={`bg-white rounded-2xl shadow-2xl w-full ${width} pop-in`} onMouseDown={e=>e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+          <h3 id={titleId} className="font-semibold text-slate-800">{title}</h3>
+          <button onClick={onClose} aria-label="Close dialog" className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 focus-ring"><Icon name="x" size={18}/></button>
+        </div>
+        <div className="p-6">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function NewCaseModal({open,onClose,onCreated}){
+  const {createCase} = useApp();
+  const toast = useToast();
+  const [form,setForm] = useState({name:"",district:"",state:"",category:"Witness Intimidation"});
+  const [saving,setSaving] = useState(false);
+  async function submit(){
+    if(!form.name.trim() || !form.district.trim() || !form.state.trim()) return;
+    setSaving(true);
+    try {
+      const created = await createCase(form);
+      toast(`Case #${created.id} registered for ${created.name}.`,"success");
+      setForm({name:"",district:"",state:"",category:"Witness Intimidation"});
+      onClose();
+      if(onCreated) onCreated(created);
+    } catch { toast("Could not create the case. Please try again.","error"); }
+    finally { setSaving(false); }
+  }
+  return (
+    <Modal open={open} onClose={onClose} title="Register new case">
+      <div className="space-y-3">
+        <div>
+          <label className="block text-xs font-semibold text-slate-500 mb-1">Full name</label>
+          <input value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-sm focus-ring"/>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-semibold text-slate-500 mb-1">District</label>
+            <input value={form.district} onChange={e=>setForm(f=>({...f,district:e.target.value}))} className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-sm focus-ring"/>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-500 mb-1">State</label>
+            <input value={form.state} onChange={e=>setForm(f=>({...f,state:e.target.value}))} className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-sm focus-ring"/>
+          </div>
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-slate-500 mb-1">Case category</label>
+          <select value={form.category} onChange={e=>setForm(f=>({...f,category:e.target.value}))} className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-sm">
+            {CASE_CATEGORIES.map(c=>(<option key={c} value={c}>{c}</option>))}
+          </select>
+        </div>
+        <button disabled={saving} onClick={submit} className="w-full py-2.5 rounded-lg text-white font-semibold bg-slate-900 disabled:opacity-50">{saving? "Creating…":"Create case"}</button>
+      </div>
+    </Modal>
+  );
+}
+
+/* ============================== GLOBAL APP DATA / CONTEXT ============================== */
+const AppCtx = createContext(null);
+function useApp(){ return useContext(AppCtx); }
+
+function AppRoot(){
+  const [screen,setScreen] = useState("landing"); // landing | login | victim | counsellor | admin
+  const [loginRole,setLoginRole] = useState("victim");
+  const [session,setSession] = useState(null); // {role, name, case_id} once logged in
+
+  const [distressScore,setDistressScore] = useState(0);
+  const weekLabels = ["Wk 1","Wk 2","Wk 3","Wk 4","Wk 5","Wk 6"];
+  const [alerts,setAlerts] = useState([]);
+  // Start empty: these used to hold fictional entries that stayed on screen whenever the
+  // backend had nothing for a case, so a brand-new case appeared to have history.
+  const [interventionLog,setInterventionLog] = useState([]);
+  const [checkins,setCheckins] = useState([]);
+  // notes and per-case history live entirely in dashboardData (backend-persisted), refreshed on every action —
+  // no local accumulator, so a page reload shows exactly what the server has, not a stale client-side guess.
+  const [dashboardData,setDashboardData] = useState({cases:[],alerts:[],events:[],interventions:[],notes:[],metrics:null});
+  const [dataError,setDataError] = useState(null);
+
+  // `activeSession` lets a caller pass the session it just received from /api/auth/login:
+  // setSession() has not been applied to state yet at that point, so reading `session` here
+  // would still be the previous (or null) one.
+  async function refreshDashboard(activeSession){
+    if(!AUTH_TOKEN) return;
+    const active = activeSession || session;
+    try {
+      const data = await api("/api/me");
+      setDashboardData(data);
+      const ownCase = active?.case_id
+        ? (data.cases||[]).find(c=>c.id===active.case_id)
+        : null;
+      if(ownCase) setDistressScore(ownCase.score);
+      const byCase = Object.fromEntries((data.cases||[]).map(c=>[c.id,c]));
+      setAlerts((data.alerts||[]).map(a=>({
+        id:"db-"+a.id, caseId:a.case_id, name:(byCase[a.case_id]||{}).name||"Case #"+a.case_id,
+        // Unknown district/score render as "—" rather than borrowing a plausible-looking value
+        // from the seeded demo case.
+        district:(byCase[a.case_id]||{}).district ?? "—", score:(byCase[a.case_id]||{}).score ?? "—",
+        reason:a.reason, severity:a.severity, status:a.status
+      })));
+      // Assign unconditionally: guarding on .length meant an empty server response left the
+      // previous (or seeded) client-side list on screen.
+      setCheckins((data.events||[]).map(e=>({id:"event-"+e.id,date:relativeTime(e.created_at),summary:`${e.kind}: ${e.content.slice(0,90)}`,caseId:e.case_id})));
+      setInterventionLog((data.interventions||[]).map(i=>({id:"int-"+i.id,title:i.title,status:i.status,date:relativeTime(i.created_at),forCase:i.case_id})));
+      setDataError(null);
+    } catch(err) {
+      // Swallowing this used to leave the last-known numbers on screen with no indication that
+      // they had stopped updating — the worst possible failure mode for a risk dashboard.
+      if(err.status !== 401) setDataError(err.message || "Could not refresh data from the server.");
+    }
+  }
+
+  async function createCase(payload){
+    const created = await api("/api/cases", payload);
+    await refreshDashboard();
+    return created;
+  }
+  async function updateAlert(alertId, patch){
+    await api(`/api/alerts/${alertId}`, patch, "PATCH");
+    await refreshDashboard();
+  }
+  async function addNote(caseId, text, author){
+    await api(`/api/cases/${caseId}/notes`, {text, author: author || "Care team"});
+    await refreshDashboard();
+  }
+
+  function bumpDistress(delta){
+    setDistressScore(prev=>clamp(prev+delta, 0, 100));
+  }
+  function addAlert(a){
+    setAlerts(prev=>[{id:Date.now(), status:"Unresolved", ...a}, ...prev]);
+  }
+  function applyAssessment(assessment){
+    setDistressScore(assessment.score);
+    if(["High","Critical"].includes(assessment.risk_band) && session?.case_id){
+      addAlert({caseId:session.case_id, name:session.name, reason:assessment.explanations.join("; "), severity:assessment.risk_band});
+    }
+    refreshDashboard();
+  }
+
+  async function login(email, password){
+    const result = await api("/api/auth/login", {email, password});
+    AUTH_TOKEN = result.token;
+    setSession(result);
+    setLoginRole(result.role);
+    setScreen(result.role);
+    refreshDashboard(result);
+    return result;
+  }
+  const DEMO_CREDENTIALS = {
+    victim:{email:"victim@demo.in", password:"demo123"},
+    counsellor:{email:"counsellor@demo.in", password:"demo123"},
+    admin:{email:"admin@demo.in", password:"demo123"},
+  };
+  async function quickSwitch(role){
+    const creds = DEMO_CREDENTIALS[role];
+    return login(creds.email, creds.password);
+  }
+  function logout(){
+    AUTH_TOKEN = null;
+    setSession(null);
+    setDashboardData({cases:[],alerts:[],events:[],interventions:[],notes:[],metrics:null});
+    setDataError(null);
+    setDistressScore(0);
+    setCheckins([]);
+    setInterventionLog([]);
+    setAlerts([]);
+    setScreen("landing");
+  }
+
+  // A 401 from any call means the session is gone; drop the user at the login screen once
+  // rather than letting every screen fail silently in place.
+  useEffect(()=>{
+    ON_SESSION_EXPIRED = () => {
+      AUTH_TOKEN = null;
+      setSession(null);
+      setDashboardData({cases:[],alerts:[],events:[],interventions:[],notes:[],metrics:null});
+      setDataError("Your session expired. Please sign in again.");
+      setScreen("login");
+    };
+    return ()=>{ ON_SESSION_EXPIRED = null; };
+  },[]);
+
+  // Every victim-facing screen reads the case from the session instead of assuming the
+  // seeded demo case: signing in as a different participant now shows that participant's data.
+  const caseId = session?.case_id || null;
+  const ctxValue = {
+    screen,setScreen, loginRole,setLoginRole, login, quickSwitch, logout, session, caseId,
+    distressScore, weekLabels, bumpDistress, applyAssessment,
+    alerts, addAlert, setAlerts,
+    dashboardData, refreshDashboard, createCase, updateAlert, addNote, dataError, setDataError,
+    interventionLog, setInterventionLog,
+    checkins, setCheckins,
+  };
+
+  return (
+    <ToastProvider>
+      <AppCtx.Provider value={ctxValue}>
+        {screen==="landing" && <LandingPage/>}
+        {screen==="login" && <LoginPage/>}
+        {screen==="victim" && <VictimApp/>}
+        {screen==="counsellor" && <CounsellorApp/>}
+        {screen==="admin" && <AdminApp/>}
+        {screen!=="landing" && screen!=="login" && <DemoSwitcher/>}
+        <StaleDataBanner/>
+        <LiveAlerts/>
+      </AppCtx.Provider>
+    </ToastProvider>
+  );
+}
+
+// Shown whenever the last refresh failed, so nobody reads stale risk numbers believing
+// they are current.
+function StaleDataBanner(){
+  const {dataError,setDataError,refreshDashboard} = useApp();
+  if(!dataError) return null;
+  return (
+    <div role="alert" className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 max-w-[92vw] flex items-center gap-3 px-4 py-3 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-sm shadow-lg">
+      <Icon name="alert" size={16}/>
+      <span className="font-medium">{dataError}</span>
+      <button onClick={()=>{ setDataError(null); refreshDashboard(); }} className="px-2.5 py-1 rounded-lg bg-amber-900 text-white text-xs font-semibold">Retry</button>
+      <button onClick={()=>setDataError(null)} aria-label="Dismiss message" className="text-amber-900/60 text-lg leading-none">&times;</button>
+    </div>
+  );
+}
+
+// Live alert push: staff dashboards (counsellor/admin) open a WebSocket so a new
+// High/Critical escalation shows up immediately, without waiting for a manual
+// refresh or an action-triggered refetch. Victim sessions don't need this — they
+// only ever see their own case, which they're already looking at.
+function LiveAlerts(){
+  const {session, addAlert, refreshDashboard} = useApp();
+  const toast = useToast();
+  useEffect(()=>{
+    if(!["counsellor","admin"].includes(session?.role) || !AUTH_TOKEN) return;
+    const protocol = location.protocol === "https:" ? "wss:" : "ws:";
+    const socket = new WebSocket(`${protocol}//${location.host}/ws/alerts?token=${encodeURIComponent(AUTH_TOKEN)}`);
+    socket.onmessage = (event) => {
+      try {
+        const payload = JSON.parse(event.data);
+        if(payload.type !== "alert") return;
+        addAlert({caseId:payload.case_id, name:payload.name, severity:payload.severity, reason:payload.reason});
+        toast(`${payload.severity} escalation — ${payload.name}: ${payload.reason}`, payload.severity==="Critical" ? "error" : "default");
+        refreshDashboard();
+      } catch {}
+    };
+    return () => socket.close();
+  }, [session?.role]);
+  return null;
+}
+
+function DemoSwitcher(){
+  const {screen,quickSwitch,logout} = useApp();
+  const toast = useToast();
+  const roles = [["victim","Victim"],["counsellor","Counsellor"],["admin","Admin"]];
+  async function switchTo(role){
+    if(role===screen) return;
+    try { await quickSwitch(role); }
+    catch { toast("Could not switch demo role — sign in again.","error"); }
+  }
+  return (
+    <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[180] bg-white/95 backdrop-blur border border-slate-200 shadow-lg rounded-full px-1.5 py-1.5 flex items-center gap-1 text-xs font-medium">
+      <span className="pl-2 pr-1 text-slate-400 hidden sm:inline">Demo view:</span>
+      {roles.map(([k,label])=>(
+        <button key={k} onClick={()=>switchTo(k)} className={`px-3 py-1.5 rounded-full transition ${screen===k? "bg-slate-900 text-white":"text-slate-600 hover:bg-slate-100"}`}>{label}</button>
+      ))}
+      <button onClick={logout} aria-label="Log out" className="ml-1 p-1.5 rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700" title="Log out"><Icon name="logout" size={15}/></button>
+    </div>
+  );
+}
+
+/* ============================== LANDING PAGE ============================== */
+function LandingPage(){
+  const {setScreen,setLoginRole} = useApp();
+  const goLogin = (role) => { setLoginRole(role); setScreen("login"); };
+  return (
+    <div className="min-h-screen bg-white">
+      <header className="max-w-7xl mx-auto px-6 py-5 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-700"><Icon name="leaf" size={19}/></div>
+          <div>
+            <div className="font-bold text-slate-900 leading-tight">Raahat</div>
+            <div className="text-[11px] text-slate-500 -mt-0.5">Detect Early. Support Better.</div>
+          </div>
+        </div>
+        <nav className="hidden md:flex items-center gap-7 text-sm text-slate-600 font-medium">
+          <span>How it works</span><span>Privacy</span><span>For Professionals</span>
+        </nav>
+        <button onClick={()=>goLogin("victim")} className="px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 transition focus-ring">Sign in</button>
+      </header>
+
+      <section className="max-w-7xl mx-auto px-6 pt-10 pb-16 grid lg:grid-cols-2 gap-10 items-center">
+        <div className="fade-in">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-semibold mb-5">
+            <Icon name="shield" size={13}/> Ministry of Social Justice &amp; Empowerment · Government of India
+          </div>
+          <h1 className="text-4xl sm:text-5xl font-bold text-slate-900 leading-[1.1] tracking-tight">Early detection. Timely support. Safer lives.</h1>
+          <p className="mt-5 text-slate-600 text-lg leading-relaxed max-w-xl">Raahat helps identify psychological distress among vulnerable victims and complainants of atrocities — before it becomes a crisis — throughout investigation, trial, rehabilitation and protection.</p>
+          <div className="mt-8 flex flex-wrap gap-3">
+            <button onClick={()=>goLogin("victim")} className="px-5 py-3 rounded-xl bg-emerald-700 text-white font-semibold hover:bg-emerald-800 transition shadow-sm focus-ring">Get Support</button>
+            <button onClick={()=>goLogin("counsellor")} className="px-5 py-3 rounded-xl bg-white border border-slate-300 text-slate-700 font-semibold hover:bg-slate-50 transition focus-ring">Counsellor Login</button>
+            <button onClick={()=>goLogin("admin")} className="px-5 py-3 rounded-xl bg-white border border-slate-300 text-slate-700 font-semibold hover:bg-slate-50 transition focus-ring">Administration Portal</button>
+          </div>
+          <p className="mt-4 text-xs text-slate-400">Synthetic-data demo · Human review required</p>
+        </div>
+        <div className="relative">
+          <div className="rounded-2xl border border-slate-200 shadow-xl bg-gradient-to-br from-slate-50 to-white p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="text-sm font-semibold text-slate-700">Dynamic Distress Score</div>
+              <RiskBadge level="Moderate Risk"/>
+            </div>
+            <div className="flex items-end gap-3 mb-2">
+              <div className="text-5xl font-bold text-slate-900">62</div>
+              <div className="text-slate-400 mb-1.5">/ 100</div>
+            </div>
+            <DistressLineChart data={[32,38,42,49,54,62]} weekLabels={["Wk1","Wk2","Wk3","Wk4","Wk5","Wk6"]} height={190}/>
+            <div className="mt-3 text-xs text-slate-500">Synthetic trend across text, check-in and engagement signals.</div>
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-slate-50 border-y border-slate-100 py-14">
+        <div className="max-w-7xl mx-auto px-6 grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {[
+            {icon:"trend", title:"Continuous Monitoring", body:"Periodic check-ins track wellbeing across the entire case lifecycle."},
+            {icon:"sparkle", title:"AI-Based Risk Detection", body:"Text, check-in and engagement signals inform one distress score."},
+            {icon:"alert", title:"Risk Alerts", body:"High-risk assessments are routed to authorised staff for human review."},
+            {icon:"lock", title:"Privacy First", body:"Consent-based monitoring with role-aware demo access."},
+          ].map((f,i)=>(
+            <div key={i} className="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md transition">
+              <div className="w-10 h-10 rounded-lg bg-slate-900 text-white flex items-center justify-center mb-3"><Icon name={f.icon} size={18}/></div>
+              <div className="font-semibold text-slate-800 mb-1">{f.title}</div>
+              <div className="text-sm text-slate-500 leading-relaxed">{f.body}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <footer className="max-w-7xl mx-auto px-6 py-10 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-slate-500">
+        <div>© 2026 Raahat · Ministry of Social Justice &amp; Empowerment, Government of India</div>
+        <div className="flex items-center gap-4">
+          <span className="inline-flex items-center gap-1.5"><Icon name="lock" size={14}/> Consent-based monitoring</span>
+          <span className="inline-flex items-center gap-1.5"><Icon name="sparkle" size={14}/> Powered by AI</span>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+/* ============================== LOGIN PAGE ============================== */
+function LoginPage(){
+  const {loginRole,setLoginRole,login,setScreen} = useApp();
+  const toast = useToast();
+  const [email,setEmail] = useState("");
+  const [pwd,setPwd] = useState("");
+  const [submitting,setSubmitting] = useState(false);
+  const creds = {
+    victim:{email:"victim@demo.in"}, counsellor:{email:"counsellor@demo.in"}, admin:{email:"admin@demo.in"},
+  };
+  useEffect(()=>{ setEmail(creds[loginRole].email); setPwd("demo123"); },[loginRole]);
+  const roleLabels = {victim:"Victim",counsellor:"Counsellor",admin:"Administrator"};
+
+  async function submit(useEmail, usePwd){
+    if(submitting) return;
+    setSubmitting(true);
+    try { await login(useEmail, usePwd); }
+    catch { toast("Invalid email or password.","error"); }
+    finally { setSubmitting(false); }
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
+      <div className="w-full max-w-md">
+        <div className="flex items-center gap-2.5 justify-center mb-6">
+          <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-700"><Icon name="leaf" size={19}/></div>
+          <div className="font-bold text-slate-900 text-lg">Raahat</div>
+        </div>
+        <div className="bg-white rounded-2xl shadow-xl border border-slate-100 p-7 pop-in">
+          <div className="flex bg-slate-100 rounded-lg p-1 mb-6">
+            {["victim","counsellor","admin"].map(r=>(
+              <button key={r} onClick={()=>setLoginRole(r)} className={`flex-1 py-2 rounded-md text-sm font-semibold transition ${loginRole===r?"bg-white shadow text-slate-900":"text-slate-500"}`}>{roleLabels[r]}</button>
+            ))}
+          </div>
+          <label className="block text-xs font-semibold text-slate-500 mb-1.5">Email</label>
+          <input value={email} onChange={e=>setEmail(e.target.value)} className="w-full mb-4 px-3.5 py-2.5 rounded-lg border border-slate-300 text-sm focus-ring"/>
+          <label className="block text-xs font-semibold text-slate-500 mb-1.5">Password</label>
+          <input type="password" value={pwd} onChange={e=>setPwd(e.target.value)} className="w-full mb-5 px-3.5 py-2.5 rounded-lg border border-slate-300 text-sm focus-ring"/>
+          <button disabled={submitting} onClick={()=>submit(email,pwd)} className="w-full py-3 rounded-lg bg-slate-900 text-white font-semibold hover:bg-slate-800 transition mb-3 focus-ring disabled:opacity-50">{submitting? "Signing in…":"Sign in"}</button>
+          <button disabled={submitting} onClick={()=>submit(creds[loginRole].email,"demo123")} className={`w-full py-3 rounded-lg font-semibold transition focus-ring disabled:opacity-50 ${loginRole==="victim"?"bg-emerald-700 hover:bg-emerald-800 text-white":loginRole==="counsellor"?"bg-blue-800 hover:bg-blue-900 text-white":"bg-teal-700 hover:bg-teal-800 text-white"}`}>
+            Enter {roleLabels[loginRole]} Demo
+          </button>
+          <div className="mt-4 text-center text-xs text-slate-400">Demo password for all roles: <span className="font-mono font-semibold text-slate-500">demo123</span></div>
+        </div>
+        <button onClick={()=>setScreen("landing")} className="mt-5 mx-auto flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700"><Icon name="back" size={15}/> Back to home</button>
+      </div>
+    </div>
+  );
+}
+
+/* ============================== VICTIM APP ============================== */
+function VictimApp(){
+  const [page,setPage] = useState("home");
+  const {logout} = useApp();
+  const nav = [
+    ["home","Home","home"], ["checkin","Check In","calendar"], ["support","My Support Plan","heart"],
+    ["meds","Medications","pill"], ["appointments","Appointments","clock"], ["resources","Resources","book"], ["settings","Settings","gear"],
+  ];
+  return (
+    <div className="min-h-screen flex" style={{background:"var(--v-bg)"}}>
+      <aside className="w-64 shrink-0 hidden md:flex flex-col border-r border-black/5 px-5 py-6" style={{background:"var(--v-bg)"}}>
+        <div className="flex items-center gap-2.5 mb-8 px-1">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white" style={{background:"var(--v-green)"}}><Icon name="leaf" size={18}/></div>
+          <div>
+            <div className="font-bold text-[15px]" style={{color:"var(--v-ink)"}}>Raahat</div>
+            <div className="text-[11px] text-black/40 -mt-0.5">A private check-in, at your pace.</div>
+          </div>
+        </div>
+        <nav className="flex-1 space-y-1">
+          {nav.map(([id,label,icon])=>(
+            <button key={id} onClick={()=>setPage(id)} className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${page===id? "bg-white shadow-sm text-[--v-green-d]":"text-black/55 hover:bg-white/60"}`} style={page===id?{color:"var(--v-green-d)"}:{}}>
+              <Icon name={icon} size={17}/> {label}
+            </button>
+          ))}
+        </nav>
+        <div className="rounded-xl p-4 text-xs" style={{background:"#EFEAE0"}}>
+          <div className="flex items-center gap-1.5 font-semibold mb-1" style={{color:"var(--v-green-d)"}}><Icon name="lock" size={13}/> Your privacy matters.</div>
+          <p className="text-black/50 leading-relaxed">Your entries stay private and are shared only with authorised support professionals.</p>
+        </div>
+        <button onClick={logout} className="mt-3 flex items-center gap-2 text-xs text-black/40 hover:text-black/60 px-1"><Icon name="logout" size={13}/> Sign out</button>
+      </aside>
+
+      <MobileNav nav={nav} current={page} onSelect={setPage} variant="victim" onLogout={logout}/>
+      <main className="flex-1 overflow-y-auto">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8 pb-28 md:pb-8">
+          {page==="home" && <VictimHome go={setPage}/>}
+          {page==="checkin" && <VictimCheckin go={setPage}/>}
+          {page==="support" && <VictimSupportPlan/>}
+          {page==="meds" && <VictimMedications/>}
+          {page==="appointments" && <VictimAppointments/>}
+          {page==="resources" && <VictimResources/>}
+          {page==="settings" && <VictimSettings/>}
+        </div>
+      </main>
+      <ChatbotWidget/>
+    </div>
+  );
+}
+
+// Below md the sidebars are hidden, which previously left phone users with no navigation at
+// all — the victim app could only ever show Home. This renders the same nav entries as a
+// scrollable bar (staff) or a fixed bottom tab bar (victim), which is how this app is actually
+// opened by the people it is built for.
+function MobileNav({nav, current, onSelect, variant="staff", onLogout}){
+  const base = "flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold whitespace-nowrap shrink-0";
+  if(variant === "victim"){
+    return (
+      <nav aria-label="Main" className="md:hidden fixed bottom-0 inset-x-0 z-[110] flex gap-1 overflow-x-auto px-2 py-2 border-t border-black/10" style={{background:"var(--v-bg)"}}>
+        {nav.map(([id,label,icon])=>(
+          <button key={id} onClick={()=>onSelect(id)} aria-current={current===id?"page":undefined}
+                  className={`${base} ${current===id? "bg-white shadow-sm":"text-black/50"}`}
+                  style={current===id?{color:"var(--v-green-d)"}:{}}>
+            <Icon name={icon} size={15}/> {label}
+          </button>
+        ))}
+        {onLogout && <button onClick={onLogout} className={`${base} text-black/50`}><Icon name="logout" size={15}/> Sign out</button>}
+      </nav>
+    );
+  }
+  return (
+    <nav aria-label="Main" className="md:hidden flex gap-1.5 overflow-x-auto px-4 py-2.5 bg-white border-b border-slate-200">
+      {nav.map(([id,label,icon])=>(
+        <button key={id} onClick={()=>onSelect(id)} aria-current={current===id?"page":undefined}
+                className={`${base} ${current===id? "bg-slate-900 text-white":"bg-slate-100 text-slate-600"}`}>
+          <Icon name={icon} size={14}/> {label}
+        </button>
+      ))}
+      {/* Sign out lives in the sidebar, which is hidden below md — without this, a phone user
+          could navigate the app but had no way to end their session. */}
+      {onLogout && <button onClick={onLogout} className={`${base} bg-slate-100 text-slate-600`}><Icon name="logout" size={14}/> Sign out</button>}
+    </nav>
+  );
+}
+
+function Card({children,className=""}){
+  return <div className={`rounded-2xl bg-white shadow-sm border border-black/5 ${className}`}>{children}</div>;
+}
+
+function VictimHome({go}){
+  const {distressScore,weekLabels,refreshDashboard,dashboardData,caseId,session} = useApp();
+  const ownEventScores = [...(dashboardData.events||[]).filter(e=>e.case_id===caseId)].reverse().map(e=>e.assessment.score);
+  const distressHistory = ownEventScores.length>=2 ? ownEventScores : ownEventScores.length===1 ? [ownEventScores[0],ownEventScores[0]] : [];
+  const risk = riskFromScore(distressScore);
+  const [mood,setMood] = useState(null);
+  const toast = useToast();
+  const [sosSending,setSosSending] = useState(false);
+  const [sosSent,setSosSent] = useState(false);
+  async function sendSos(){
+    if(sosSending) return;
+    setSosSending(true);
+    try {
+      await api(`/api/cases/${caseId}/sos`, {note:"Emergency button pressed from Home screen"});
+      await refreshDashboard();
+      setSosSent(true);
+      toast("Your care team has been alerted immediately.","error");
+    } catch { toast("Could not reach the support service. If you are in immediate danger, contact local emergency services now.","error"); }
+    finally { setSosSending(false); }
+  }
+  const moods = [
+    {k:"vgood",label:"Very Good",icon:"smile"}, {k:"good",label:"Good",icon:"smile"}, {k:"okay",label:"Okay",icon:"meh"},
+    {k:"low",label:"Low",icon:"frown"}, {k:"vlow",label:"Very Low",icon:"frown"},
+  ];
+  return (
+    <div className="fade-in">
+      <div className="flex items-start justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold" style={{color:"var(--v-ink)"}}>Hello, {(session?.name||"there").split(" ")[0]}.</h1>
+          <p className="text-black/50 mt-1">How are you feeling today?</p>
+        </div>
+        <div className="text-right hidden sm:block">
+          <div className="text-xs text-black/40">Case #{caseId || "—"}</div>
+        </div>
+      </div>
+
+      <Card className="p-5 mb-5">
+        <div className="text-sm font-semibold text-black/60 mb-3">Today's check-in</div>
+        <div className="grid grid-cols-5 gap-2">
+          {moods.map(m=>(
+            <button key={m.k} onClick={()=>{setMood(m.k); toast(`Thanks for sharing — logged as "${m.label}".`,"success");}}
+              className={`flex flex-col items-center gap-1.5 py-3 rounded-xl border transition ${mood===m.k? "border-transparent text-white":"border-black/5 text-black/60 hover:bg-black/[0.03]"}`}
+              style={mood===m.k?{background:"var(--v-green)"}:{}}>
+              <Icon name={m.icon} size={22}/>
+              <span className="text-xs font-medium">{m.label}</span>
+            </button>
+          ))}
+        </div>
+        {mood && <div className="mt-3 text-xs rounded-lg px-3 py-2 flex items-center gap-2" style={{background:"#EFEAE0",color:"var(--v-green-d)"}}><Icon name="check" size={13}/> Recorded. Thank you for checking in with yourself today.</div>}
+      </Card>
+
+      <div className="grid lg:grid-cols-3 gap-5 mb-5">
+        <Card className="p-5 lg:col-span-2">
+          <div className="flex items-center justify-between mb-1">
+            <div className="text-sm font-semibold text-black/60">Your distress trend</div>
+            <RiskBadge level={risk.label}/>
+          </div>
+          <div className="flex items-end gap-2 mb-2">
+            <div className="text-4xl font-bold" style={{color:"var(--v-ink)"}}>{distressScore}</div>
+            <div className="text-black/30 mb-1">/ 100</div>
+          </div>
+          <DistressLineChart data={distressHistory} weekLabels={weekLabels.slice(-distressHistory.length)} height={190}/>
+          <div className="mt-3 text-sm text-black/55 leading-relaxed">Your stress indicators have increased slightly over recent weeks. That's okay to notice — small steps and a conversation with your counsellor can help.</div>
+        </Card>
+        <Card className="p-5 flex flex-col">
+          <div className="text-sm font-semibold text-black/60 mb-3">My Support Plan</div>
+          <div className="space-y-3 flex-1">
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{background:"#EAF0F6", color:"var(--v-blue)"}}><Icon name="calendar" size={16}/></div>
+              <div>
+                <div className="text-sm font-semibold" style={{color:"var(--v-ink)"}}>Next Counselling Session</div>
+                <div className="text-xs text-black/45">14 September, 11:30 AM</div>
+                <div className="text-xs text-black/45">Dr. Meera Sharma</div>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{background:"#F5E9E4", color:"var(--v-terracotta)"}}><Icon name="pill" size={16}/></div>
+              <div>
+                <div className="text-sm font-semibold" style={{color:"var(--v-ink)"}}>Medication Reminder</div>
+                <div className="text-xs text-black/45">Sertraline 50mg · Next dose 8:00 PM</div>
+              </div>
+            </div>
+          </div>
+          <button onClick={()=>go("support")} className="mt-3 text-sm font-semibold flex items-center gap-1" style={{color:"var(--v-green-d)"}}>View full plan <Icon name="chevronRight" size={14}/></button>
+        </Card>
+      </div>
+
+      <div className="grid sm:grid-cols-3 gap-5">
+        <Card className="p-5">
+          <div className="w-9 h-9 rounded-lg flex items-center justify-center mb-3" style={{background:"#EAF0F6",color:"var(--v-blue)"}}><Icon name="users" size={16}/></div>
+          <div className="font-semibold text-sm mb-1" style={{color:"var(--v-ink)"}}>People I Trust</div>
+          <div className="text-xs text-black/45 mb-3">2 contacts saved</div>
+          <button onClick={()=>go("support")} className="text-xs font-semibold" style={{color:"var(--v-green-d)"}}>View &rarr;</button>
+        </Card>
+        <Card className="p-5">
+          <div className="w-9 h-9 rounded-lg flex items-center justify-center mb-3" style={{background:"#EAF3EA",color:"var(--v-green)"}}><Icon name="book" size={16}/></div>
+          <div className="font-semibold text-sm mb-1" style={{color:"var(--v-ink)"}}>Helpful Resources</div>
+          <div className="text-xs text-black/45 mb-3">4 saved articles &amp; tools</div>
+          <button onClick={()=>go("resources")} className="text-xs font-semibold" style={{color:"var(--v-green-d)"}}>View &rarr;</button>
+        </Card>
+        <Card className="p-5">
+          <div className="w-9 h-9 rounded-lg flex items-center justify-center mb-3" style={{background:"#FBEAEA",color:"var(--v-terracotta)"}}><Icon name="phone" size={16}/></div>
+          <div className="font-semibold text-sm mb-1" style={{color:"var(--v-ink)"}}>Emergency Support</div>
+          <div className="text-xs text-black/45 mb-3">Use local emergency services for immediate danger</div>
+          <button disabled={sosSending} onClick={sendSos} className="text-xs font-semibold disabled:opacity-40" style={{color:"var(--v-terracotta)"}}>{sosSending? "Alerting your care team…":"I need help right now →"}</button>
+        </Card>
+      </div>
+
+      {sosSent && (
+        <div className="mt-5 bg-white border-2 rounded-2xl p-5 fade-in" style={{borderColor:"var(--high)"}}>
+          <div className="flex items-center gap-2 mb-2" style={{color:"var(--high)"}}><Icon name="alert" size={18}/><span className="font-semibold text-sm">Your care team has been alerted immediately.</span></div>
+          <p className="text-xs text-black/55">This demo cannot call or dispatch anyone. If you are in immediate danger, contact local emergency services or a trusted person near you right now.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function VictimCheckin({go}){
+  const {applyAssessment,setCheckins} = useApp();
+  const toast = useToast();
+  const [step,setStep] = useState(0);
+  const [answers,setAnswers] = useState({});
+  const steps = [
+    {key:"mood", q:"How have you been feeling emotionally?", opts:["Good","Okay","Low","Struggling"]},
+    {key:"sleep", q:"How has your sleep been recently?", opts:["Restful","A little disturbed","Poor","Very poor"]},
+    {key:"unsafe", q:"Have you felt unsafe or threatened recently?", opts:["No","A little","Yes"]},
+    {key:"anxiety", q:"Have you experienced increased anxiety, fear or stress?", opts:["Not really","Somewhat","Yes, noticeably"]},
+    {key:"case", q:"Has anything related to your case, court hearings or investigation been worrying you?", opts:["No","A little","Yes, a lot"]},
+    {key:"support", q:"Do you need any support right now?", opts:["Counselling","Medical Support","Witness Protection","Legal Assistance","Financial Assistance","Relocation Support","Rehabilitation Support","I'm okay for now"], multi:true},
+  ];
+  const done = step>=steps.length;
+
+  function choose(val){
+    const key = steps[step].key;
+    setAnswers(a=>{
+      if(steps[step].multi){
+        const cur = a[key]||[];
+        const nextArr = cur.includes(val)? cur.filter(x=>x!==val): [...cur,val];
+        return {...a,[key]:nextArr};
+      }
+      return {...a,[key]:val};
+    });
+  }
+  function next(){
+    if(step<steps.length-1) setStep(step+1);
+    else finish();
+  }
+  async function finish(){
+    const maps = {mood:{"Good":0,"Okay":1,"Low":2,"Struggling":3},sleep:{"Restful":0,"A little disturbed":1,"Poor":2,"Very poor":3},unsafe:{"No":0,"A little":1,"Yes":2},anxiety:{"Not really":0,"Somewhat":1,"Yes, noticeably":2},case:{"No":0,"A little":1,"Yes, a lot":3}};
+    try {
+      const assessment = await api("/api/checkins", {mood:maps.mood[answers.mood],sleep:maps.sleep[answers.sleep],safety:maps.unsafe[answers.unsafe],anxiety:maps.anxiety[answers.anxiety],case_pressure:maps.case[answers.case],support:answers.support||[]});
+      applyAssessment(assessment);
+      setCheckins(c=>[{id:Date.now(),date:"Today",summary:`Guided check-in completed · ${assessment.risk_band} assessment.`},...c]);
+      setStep(steps.length);
+    } catch { toast("Unable to save your check-in. Please try again.","error"); }
+  }
+
+  if(done){
+    return (
+      <div className="max-w-lg mx-auto text-center py-20 fade-in">
+        <div className="w-16 h-16 rounded-full mx-auto flex items-center justify-center mb-5" style={{background:"#EAF3EA",color:"var(--v-green)"}}><Icon name="check" size={28}/></div>
+        <h2 className="text-2xl font-bold mb-2" style={{color:"var(--v-ink)"}}>Thank you for checking in.</h2>
+        <p className="text-black/55 mb-8">Your wellbeing update has been securely recorded and shared with your care team.</p>
+        <button onClick={()=>go("home")} className="px-5 py-3 rounded-xl text-white font-semibold" style={{background:"var(--v-green)"}}>Back to Home</button>
+      </div>
+    );
+  }
+
+  const s = steps[step];
+  const selected = answers[s.key];
+  return (
+    <div className="max-w-xl mx-auto fade-in">
+      <div className="mb-6">
+        <div className="flex items-center gap-1.5 mb-2">
+          {steps.map((_,i)=>(<div key={i} className="h-1.5 flex-1 rounded-full" style={{background: i<=step? "var(--v-green)":"#E7E2D6"}}></div>))}
+        </div>
+        <div className="text-xs text-black/40">Step {step+1} of {steps.length}</div>
+      </div>
+      <Card className="p-7">
+        <h2 className="text-xl font-semibold mb-6" style={{color:"var(--v-ink)"}}>{s.q}</h2>
+        <div className="flex flex-col gap-2.5 mb-6">
+          {s.opts.map(o=>{
+            const isSel = s.multi? (selected||[]).includes(o) : selected===o;
+            return (
+              <button key={o} onClick={()=>choose(o)} className={`text-left px-4 py-3 rounded-xl border transition font-medium text-sm ${isSel? "border-transparent text-white":"border-black/10 text-black/65 hover:bg-black/[0.03]"}`} style={isSel?{background:"var(--v-green)"}:{}}>
+                {o}
+              </button>
+            );
+          })}
+        </div>
+        <div className="flex justify-between">
+          <button disabled={step===0} onClick={()=>setStep(step-1)} className="px-4 py-2 text-sm font-medium text-black/40 disabled:opacity-30">Back</button>
+          <button onClick={next} disabled={!selected || (s.multi && selected.length===0)} className="px-5 py-2.5 rounded-xl text-white font-semibold disabled:opacity-30" style={{background:"var(--v-green)"}}>{step===steps.length-1? "Submit":"Next"}</button>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function VictimSupportPlan(){
+  const toast = useToast();
+  const [contacts,setContacts] = useState([{name:"Priya (Sister)",phone:"+91 98xxxxxx21"},{name:"Ravi (Friend)",phone:"+91 90xxxxxx08"}]);
+  const [modal,setModal] = useState(false);
+  const [name,setName] = useState(""); const [phone,setPhone] = useState("");
+  return (
+    <div className="fade-in max-w-4xl">
+      <h1 className="text-2xl font-bold mb-1" style={{color:"var(--v-ink)"}}>My Support Plan</h1>
+      <p className="text-black/50 mb-6">Small steps. Real support. On your terms.</p>
+      <div className="grid sm:grid-cols-2 gap-5">
+        <Card className="p-5">
+          <div className="font-semibold mb-3 flex items-center gap-2" style={{color:"var(--v-ink)"}}><Icon name="heart" size={16}/> My Counsellor</div>
+          <div className="text-sm text-black/60">Dr. Meera Sharma</div>
+          <div className="text-xs text-black/40">Next session: 14 Sep, 11:30 AM</div>
+          <button onClick={()=>toast("Message sent to Dr. Meera Sharma.","success")} className="mt-3 text-xs font-semibold" style={{color:"var(--v-green-d)"}}>Message counsellor &rarr;</button>
+        </Card>
+        <Card className="p-5">
+          <div className="flex items-center justify-between mb-3">
+            <div className="font-semibold flex items-center gap-2" style={{color:"var(--v-ink)"}}><Icon name="users" size={16}/> People I Trust</div>
+            <button onClick={()=>setModal(true)} className="text-xs font-semibold flex items-center gap-1" style={{color:"var(--v-green-d)"}}><Icon name="plus" size={12}/> Add</button>
+          </div>
+          {contacts.map((c,i)=>(<div key={i} className="text-sm text-black/60 py-1 flex justify-between"><span>{c.name}</span><span className="text-black/35">{c.phone}</span></div>))}
+        </Card>
+        <Card className="p-5">
+          <div className="font-semibold mb-2 flex items-center gap-2" style={{color:"var(--v-ink)"}}><Icon name="pill" size={16}/> Medical Support</div>
+          <div className="text-sm text-black/60">Sertraline 50mg · Once daily</div>
+          <div className="text-xs text-black/40">Prescribed by Dr. R. Nair</div>
+        </Card>
+        <Card className="p-5">
+          <div className="font-semibold mb-2 flex items-center gap-2" style={{color:"var(--v-ink)"}}><Icon name="briefcase" size={16}/> Legal Support</div>
+          <div className="text-sm text-black/60">Assigned: Adv. S. Kapoor</div>
+          <div className="text-xs text-black/40">Status: Active</div>
+        </Card>
+        <Card className="p-5">
+          <div className="font-semibold mb-2 flex items-center gap-2" style={{color:"var(--v-terracotta)"}}><Icon name="shield" size={16}/> Protection Contact</div>
+          <div className="text-sm text-black/60">South Delhi Protection Cell</div>
+          <button onClick={()=>toast("Protection cell has been notified.","success")} className="mt-3 text-xs font-semibold" style={{color:"var(--v-terracotta)"}}>Request contact &rarr;</button>
+        </Card>
+        <Card className="p-5">
+          <div className="font-semibold mb-2 flex items-center gap-2" style={{color:"var(--v-ink)"}}><Icon name="database" size={16}/> Financial / Rehabilitation Assistance</div>
+          <div className="text-sm text-black/60">Compensation review: In progress</div>
+          <button onClick={()=>toast("Assistance request submitted.","success")} className="mt-3 text-xs font-semibold" style={{color:"var(--v-green-d)"}}>Request assistance &rarr;</button>
+        </Card>
+      </div>
+      <Modal open={modal} onClose={()=>setModal(false)} title="Add trusted contact">
+        <div className="space-y-3">
+          <input placeholder="Name" value={name} onChange={e=>setName(e.target.value)} className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-sm"/>
+          <input placeholder="Phone number" value={phone} onChange={e=>setPhone(e.target.value)} className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-sm"/>
+          <button onClick={()=>{ if(name){ setContacts(c=>[...c,{name,phone}]); setModal(false); setName("");setPhone(""); toast("Trusted contact added.","success");}}} className="w-full py-2.5 rounded-lg text-white font-semibold" style={{background:"var(--v-green)"}}>Save contact</button>
+        </div>
+      </Modal>
+    </div>
+  );
+}
+
+function VictimMedications(){
+  const toast = useToast();
+  const [status,setStatus] = useState("pending");
+  const week = ["M","T","W","T","F","S","S"];
+  const track = [1,1,1,0,1,1,status==="taken"?1:0];
+  return (
+    <div className="fade-in max-w-3xl">
+      <h1 className="text-2xl font-bold mb-1" style={{color:"var(--v-ink)"}}>Medications</h1>
+      <p className="text-black/50 mb-6">Only your authorised healthcare professional can modify your medication plan.</p>
+      <Card className="p-6 mb-5">
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{background:"#F5E9E4",color:"var(--v-terracotta)"}}><Icon name="pill" size={20}/></div>
+            <div>
+              <div className="font-semibold" style={{color:"var(--v-ink)"}}>Sertraline</div>
+              <div className="text-xs text-black/45">50 mg · Once daily</div>
+            </div>
+          </div>
+          <div className="text-right text-xs text-black/45">
+            <div>Prescribed by Dr. R. Nair</div>
+            <div>Start: 12 Jul 2026</div>
+          </div>
+        </div>
+        <div className="flex items-center justify-between px-3.5 py-2.5 rounded-lg mb-4" style={{background:"#FAF6EF"}}>
+          <span className="text-sm text-black/55">Next dose</span>
+          <span className="text-sm font-semibold" style={{color:"var(--v-ink)"}}>8:00 PM</span>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={()=>{setStatus("taken"); toast("Marked as taken.","success");}} className={`flex-1 py-2.5 rounded-lg font-semibold text-sm ${status==="taken"?"text-white":"border border-black/10 text-black/60"}`} style={status==="taken"?{background:"var(--v-green)"}:{}}>Taken</button>
+          <button onClick={()=>{setStatus("skipped"); toast("Marked as skipped.");}} className={`flex-1 py-2.5 rounded-lg font-semibold text-sm ${status==="skipped"?"text-white bg-slate-700":"border border-black/10 text-black/60"}`}>Skipped</button>
+          <button onClick={()=>toast("We'll remind you again in 1 hour.")} className="flex-1 py-2.5 rounded-lg font-semibold text-sm border border-black/10 text-black/60">Remind me later</button>
+        </div>
+      </Card>
+      <Card className="p-6 mb-5">
+        <div className="text-sm font-semibold text-black/60 mb-3">This week's adherence</div>
+        <div className="flex justify-between">
+          {week.map((d,i)=>(
+            <div key={i} className="flex flex-col items-center gap-1.5">
+              <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold" style={{background: track[i]? "#DCEEDF":"#F1EEE6", color: track[i]? "var(--v-green-d)":"#B8B2A2"}}>{track[i]? <Icon name="check" size={13}/> : d}</div>
+              <span className="text-[10px] text-black/35">{d}</span>
+            </div>
+          ))}
+        </div>
+      </Card>
+      <div className="text-xs text-black/40 leading-relaxed px-1">Medication information is shown only as recorded in your care plan. Always follow instructions from your healthcare professional.</div>
+    </div>
+  );
+}
+
+function VictimAppointments(){
+  const toast = useToast();
+  const items = [
+    {date:"14 Sep 2026", time:"11:30 AM", type:"Counselling session", with:"Dr. Meera Sharma"},
+    {date:"22 Sep 2026", time:"10:00 AM", type:"Court hearing", with:"South Delhi District Court"},
+    {date:"30 Sep 2026", time:"3:00 PM", type:"Legal consultation", with:"Adv. S. Kapoor"},
+  ];
+  return (
+    <div className="fade-in max-w-3xl">
+      <h1 className="text-2xl font-bold mb-1" style={{color:"var(--v-ink)"}}>Appointments</h1>
+      <p className="text-black/50 mb-6">Your upcoming sessions and hearings.</p>
+      <div className="space-y-3">
+        {items.map((it,i)=>(
+          <Card key={i} className="p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-xl flex flex-col items-center justify-center text-white text-xs font-bold" style={{background:"var(--v-blue)"}}>
+                <span>{it.date.split(" ")[0]}</span><span className="text-[9px] font-medium -mt-0.5">{it.date.split(" ")[1]}</span>
+              </div>
+              <div>
+                <div className="font-semibold text-sm" style={{color:"var(--v-ink)"}}>{it.type}</div>
+                <div className="text-xs text-black/45">{it.time} · {it.with}</div>
+              </div>
+            </div>
+            <button onClick={()=>toast("Reminder set.","success")} className="text-xs font-semibold" style={{color:"var(--v-green-d)"}}>Remind me</button>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function VictimResources(){
+  const items = [
+    {title:"Understanding grounding techniques", tag:"Coping tool"},
+    {title:"What to expect at a court hearing", tag:"Legal"},
+    {title:"Breathing exercise for anxious moments", tag:"Coping tool"},
+    {title:"Your rights as a witness", tag:"Legal"},
+  ];
+  return (
+    <div className="fade-in max-w-3xl">
+      <h1 className="text-2xl font-bold mb-1" style={{color:"var(--v-ink)"}}>Resources</h1>
+      <p className="text-black/50 mb-6">Reminders to be kind to yourself, and helpful things to know.</p>
+      <div className="grid sm:grid-cols-2 gap-4">
+        {items.map((r,i)=>(
+          <Card key={i} className="p-5 hover:shadow-md transition cursor-pointer">
+            <div className="text-xs font-semibold mb-2" style={{color:"var(--v-green-d)"}}>{r.tag}</div>
+            <div className="font-medium text-sm" style={{color:"var(--v-ink)"}}>{r.title}</div>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function VictimSettings(){
+  const toast = useToast();
+  const [monitoring,setMonitoring] = useState(true);
+  useEffect(()=>{api("/api/consent").then(d=>setMonitoring(d.monitoring)).catch(()=>{});},[]);
+  async function changeConsent(){
+    try { const next = !monitoring; await api("/api/consent",{granted:next}); setMonitoring(next); toast(next?"Monitoring consent enabled.":"Monitoring consent withdrawn.","success"); }
+    catch { toast("Could not update consent.","error"); }
+  }
+  async function exportData(){
+    try {
+      const headers = AUTH_TOKEN? {Authorization:"Bearer "+AUTH_TOKEN}:{};
+      const response = await fetch("/api/privacy/export",{headers}); if(!response.ok) throw new Error();
+      const url = URL.createObjectURL(new Blob([JSON.stringify(await response.json(),null,2)],{type:"application/json"}));
+      const a=document.createElement("a"); a.href=url; a.download="raahat-my-data.json"; a.click(); URL.revokeObjectURL(url);
+    } catch { toast("Could not export data.","error"); }
+  }
+  async function requestDeletion(){
+    try { await api("/api/privacy/delete-request",{request_type:"delete_data"}); toast("Deletion request sent for care-team review.","success"); }
+    catch { toast("Could not send deletion request.","error"); }
+  }
+  return (
+    <div className="fade-in max-w-2xl">
+      <h1 className="text-2xl font-bold mb-1" style={{color:"var(--v-ink)"}}>Settings</h1>
+      <p className="text-black/50 mb-6">Manage how your data is used and shared.</p>
+      <Card className="p-5 mb-4 flex items-center justify-between">
+        <div>
+          <div className="font-semibold text-sm" style={{color:"var(--v-ink)"}}>Consent-based monitoring</div>
+          <div className="text-xs text-black/45">Your check-ins are only shared with your assigned care team.</div>
+        </div>
+        <button onClick={changeConsent} aria-label="Toggle consent-based monitoring" className="w-11 h-6 rounded-full flex items-center px-0.5" style={{background:monitoring?"var(--v-green)":"#A7AFB9"}}><div className={`w-5 h-5 bg-white rounded-full ${monitoring?"ml-auto":""}`}></div></button>
+      </Card>
+      <Card className="p-5 mb-4 flex items-center justify-between">
+        <div>
+          <div className="font-semibold text-sm" style={{color:"var(--v-ink)"}}>Reminder notifications</div>
+          <div className="text-xs text-black/45">Medication and appointment reminders.</div>
+        </div>
+        <div className="w-11 h-6 rounded-full flex items-center px-0.5" style={{background:"var(--v-green)"}}><div className="w-5 h-5 bg-white rounded-full ml-auto"></div></div>
+      </Card>
+      <div className="flex gap-2 flex-wrap"><button onClick={exportData} className="px-4 py-2.5 rounded-xl text-white font-semibold" style={{background:"var(--v-green)"}}>Export my data</button><button onClick={requestDeletion} className="px-4 py-2.5 rounded-xl border border-red-200 text-red-700 font-semibold">Request data deletion</button></div>
+    </div>
+  );
+}
+
+/* ============================== CHATBOT WIDGET ============================== */
+function ChatbotWidget(){
+  const [open,setOpen] = useState(false);
+  const {applyAssessment} = useApp();
+  const toast = useToast();
+  const [messages,setMessages] = useState([
+    {from:"bot",text:"Hi Asha. I'm here to check in with you. How have you been feeling lately?"},
+  ]);
+  const [input,setInput] = useState("");
+  const [emergency,setEmergency] = useState(false);
+  const [sending,setSending] = useState(false);
+  const [recording,setRecording] = useState(false);
+  const scrollRef = useRef(null);
+  const recorderRef = useRef(null), streamRef = useRef(null), recordingTimer = useRef(null);
+
+  useEffect(()=>{ if(scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; },[messages,emergency,open]);
+  // recorderRef is null until the user actually records something, so this cleanup threw on
+  // unmount for every session that never used a voice note — taking the whole app down to a
+  // white screen on sign-out, because an error thrown during unmount unmounts the React tree.
+  useEffect(()=>()=>{ clearTimeout(recordingTimer.current); if(recorderRef.current) recorderRef.current.onstop=null; streamRef.current?.getTracks().forEach(track=>track.stop()); },[]);
+
+  const quick = ["I feel okay","I feel anxious","I feel unsafe","I feel very low","I need someone to talk to","Something else"];
+
+  async function rateMessage(messageId, rating){
+    try {
+      await api("/api/chat/feedback", {message_id:messageId, rating});
+      setMessages(m=>m.map(item=>item.messageId===messageId? {...item,feedback:rating}:item));
+    } catch { toast("Feedback could not be saved. Please try again.","error"); }
+  }
+
+  function speak(message){
+    if(!window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(message.text);
+    utterance.lang = message.language==="hinglish" || message.language==="hindi" ? "hi-IN" : "en-IN";
+    window.speechSynthesis.speak(utterance);
+  }
+
+  async function sendVoiceNote(audio){
+    if(audio.size > 5*1024*1024){ toast("Voice note is too large. Please keep it under 5 MB.","error"); return; }
+    setMessages(m=>[...m,{from:"user",text:"Voice note: transcribing..."}]); setSending(true);
+    try {
+      const headers = {"Content-Type":audio.type||"audio/webm","X-Voice-Consent":"yes"};
+      if(AUTH_TOKEN) headers.Authorization = "Bearer "+AUTH_TOKEN;
+      const response = await fetch("/api/voice",{method:"POST",headers,body:audio});
+      const payload = await response.json(); if(!response.ok) throw new Error(payload.detail||"Voice transcription failed");
+      setMessages(m=>[...m.slice(0,-1),{from:"user",text:"Voice note: "+payload.transcript},{from:"bot",text:payload.assistant,messageId:payload.message_id,language:payload.language}]);
+      applyAssessment(payload.assessment);
+      if(payload.urgent){ setEmergency(true); toast("Urgent support guidance is displayed below.","error"); }
+    } catch(error) { setMessages(m=>m.map((item,i)=>i===m.length-1? {...item,text:"Voice note could not be transcribed. Please type your message."}:item)); }
+    finally { setSending(false); }
+  }
+
+  async function startRecording(){
+    if(!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder){ toast("Voice notes are not supported by this browser.","error"); return; }
+    if(!window.confirm("Your voice note will be sent to Gemini for transcription. The recording is not stored; its transcript is saved in this chat.")) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+      const mimeType = ["audio/webm;codecs=opus","audio/webm","audio/mp4"].find(MediaRecorder.isTypeSupported);
+      const chunks = [], recorder = mimeType ? new MediaRecorder(stream,{mimeType}) : new MediaRecorder(stream);
+      streamRef.current=stream; recorderRef.current=recorder;
+      recorder.ondataavailable=e=>{if(e.data.size) chunks.push(e.data);};
+      recorder.onstop=()=>{ clearTimeout(recordingTimer.current); stream.getTracks().forEach(track=>track.stop()); setRecording(false); sendVoiceNote(new Blob(chunks,{type:recorder.mimeType||"audio/webm"})); };
+      recorder.start(); setRecording(true);
+      recordingTimer.current=setTimeout(()=>{if(recorder.state==="recording") recorder.stop();},45000);
+    } catch { toast("Microphone access could not be started.","error"); }
+  }
+
+  function toggleRecording(){
+    if(recording){ clearTimeout(recordingTimer.current); recorderRef.current?.stop(); }
+    else startRecording();
+  }
+
+  async function send(text){
+    if(!text.trim() || sending) return;
+    setMessages(m=>[...m,{from:"user",text}]);
+    setInput("");
+    setSending(true);
+    try {
+      const headers = {"Content-Type":"application/json"};
+      if(AUTH_TOKEN) headers.Authorization = "Bearer "+AUTH_TOKEN;
+      const response = await fetch("/api/chat/stream", {method:"POST", headers, body:JSON.stringify({message:text})});
+      if(!response.ok || !response.body) throw new Error("Streaming request failed");
+      setMessages(m=>[...m,{from:"bot",text:"",streaming:true}]);
+      const reader = response.body.getReader(), decoder = new TextDecoder();
+      let buffer = "", fullText = "";
+      while(true){
+        const {done,value} = await reader.read();
+        if(done) break;
+        buffer += decoder.decode(value,{stream:true});
+        const frames = buffer.split("\n\n"); buffer = frames.pop();
+        frames.forEach(frame=>{
+          const event = (frame.match(/^event: (.+)$/m)||[,"message"])[1];
+          const data = (frame.match(/^data: (.+)$/m)||[,""])[1];
+          if(!data) return;
+          const payload = JSON.parse(data);
+          if(event==="meta"){
+            setMessages(m=>m.map((item,i)=>i===m.length-1? {...item,streaming:false,messageId:payload.message_id,language:payload.language}:item));
+            applyAssessment(payload.assessment);
+            if(payload.urgent){ setEmergency(true); toast("Urgent support guidance is displayed below.","error"); }
+          } else if(payload.delta){
+            fullText += payload.delta;
+            setMessages(m=>m.map((item,i)=>i===m.length-1? {...item,text:fullText}:item));
+          }
+        });
+      }
+    } catch { setMessages(m=>[...m,{from:"bot",text:"I could not reach the support service. If you are in immediate danger, contact local emergency services now."}]); }
+    finally { setSending(false); }
+  }
+
+  return (
+    <>
+      <button onClick={()=>setOpen(o=>!o)} className="fixed bottom-6 right-6 z-[120] w-16 h-16 rounded-full text-white shadow-2xl flex items-center justify-center pulse focus-ring" style={{background:"var(--v-green)"}} aria-label="Open support assistant">
+        {open? <Icon name="x" size={24}/> : <Icon name="message" size={24}/>}
+      </button>
+      {open && (
+        <div className="fixed bottom-28 right-6 z-[119] w-[380px] max-w-[92vw] h-[560px] max-h-[75vh] bg-white rounded-2xl shadow-2xl border border-black/5 flex flex-col slide-in-right overflow-hidden">
+          <div className="px-4 py-3.5 text-white flex items-center gap-3" style={{background:"var(--v-green)"}}>
+            <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center"><Icon name="leaf" size={17}/></div>
+            <div>
+              <div className="font-semibold text-sm">Raahat Support Assistant</div>
+              <div className="text-[11px] text-white/80">Stored for approved care-team review</div>
+            </div>
+          </div>
+          <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-[#FAF6EF]">
+            {messages.map((m,i)=>(
+              <div key={m.id ?? `msg-${i}`} className={`flex flex-col ${m.from==="user"?"items-end":"items-start"}`}>
+                <div className={`max-w-[80%] px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed ${m.from==="user"? "bg-slate-800 text-white rounded-br-sm":"bg-white border border-black/5 text-black/70 rounded-bl-sm"}`}>{m.text}{m.streaming && <span className="animate-pulse">|</span>}</div>
+                {m.from==="bot" && m.messageId && !m.streaming && <div className="flex gap-1 mt-1">
+                  <button onClick={()=>speak(m)} aria-label="Listen to reply" title="Listen to reply" className="text-xs px-1.5 py-0.5 rounded hover:bg-black/5"><Icon name="volume" size={13}/></button>
+                  <button onClick={()=>rateMessage(m.messageId,"helpful")} aria-label="Helpful" title="Helpful" className={`text-xs px-1.5 py-0.5 rounded ${m.feedback==="helpful"?"bg-emerald-100":"hover:bg-black/5"}`}>👍</button>
+                  <button onClick={()=>rateMessage(m.messageId,"not_helpful")} aria-label="Not helpful" title="Not helpful" className={`text-xs px-1.5 py-0.5 rounded ${m.feedback==="not_helpful"?"bg-rose-100":"hover:bg-black/5"}`}>👎</button>
+                </div>}
+              </div>
+            ))}
+            {emergency && <EmergencyCard/>}
+          </div>
+          {!emergency && (
+            <div className="border-t border-black/5 px-3 py-2.5 bg-white">
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {quick.map(q=>(<button key={q} disabled={sending} onClick={()=>send(q)} className="text-xs px-2.5 py-1.5 rounded-full border border-black/10 text-black/60 hover:bg-black/[0.03] disabled:opacity-40">{q}</button>))}
+              </div>
+              <div className="flex items-center gap-2">
+                <input disabled={sending} value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter") send(input);}} placeholder="You can type here…" className="flex-1 px-3.5 py-2 rounded-full border border-black/10 text-sm focus-ring"/>
+                <button disabled={sending} onClick={toggleRecording} aria-label={recording?"Stop voice note":"Record voice note"} title={recording?"Stop voice note":"Record voice note"} className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 border border-black/10 ${recording?"text-white bg-red-600":"text-black/60"}`}><Icon name={recording?"x":"mic"} size={15}/></button>
+                <button disabled={sending} onClick={()=>send(input)} className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 text-white disabled:opacity-40" style={{background:"var(--v-green)"}}><Icon name="send" size={15}/></button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </>
+  );
+}
+
+function EmergencyCard(){
+  const toast = useToast();
+  return (
+    <div className="bg-white border-2 rounded-2xl p-4 fade-in" style={{borderColor:"var(--high)"}}>
+      <div className="flex items-center gap-2 mb-2" style={{color:"var(--high)"}}><Icon name="alert" size={18}/><span className="font-semibold text-sm">Your message indicates that you may need immediate support.</span></div>
+      <p className="text-xs text-black/55 mb-3">This demo cannot call or notify anyone. Use local emergency services or a trusted person if immediate help is needed.</p>
+      <div className="grid grid-cols-2 gap-2">
+        <button onClick={()=>toast("Contact your assigned counsellor through the official channel.")} className="text-xs font-semibold py-2 rounded-lg text-white" style={{background:"var(--v-green)"}}>Counsellor guidance</button>
+        <button onClick={()=>toast("Contact local emergency services if there is immediate danger.","error")} className="text-xs font-semibold py-2 rounded-lg text-white" style={{background:"var(--high)"}}>Emergency guidance</button>
+        <button onClick={()=>toast("Ask an authorised officer about a protection request.")} className="text-xs font-semibold py-2 rounded-lg border border-black/10 text-black/60">Protection guidance</button>
+        <button onClick={()=>toast("Contact a trusted person directly if it is safe to do so.")} className="text-xs font-semibold py-2 rounded-lg border border-black/10 text-black/60">Trusted-person guidance</button>
+      </div>
+    </div>
+  );
+}
+
+/* ============================== COUNSELLOR APP ============================== */
+// Filler cases used to be merged into the caseload here. A clinical dashboard must not show
+// invented people alongside real ones — a counsellor cannot tell which is which — so every
+// list below renders only what the backend actually returns, with a real empty state.
+
+function CounsellorApp(){
+  const {alerts,distressScore,weekLabels,logout,dashboardData,refreshDashboard} = useApp();
+  const [selected,setSelected] = useState(null);
+  const [tab,setTab] = useState("overview");
+  const [search,setSearch] = useState("");
+  useEffect(()=>{ refreshDashboard(); },[]);
+  // Open the highest-priority real case once the caseload arrives, rather than assuming a
+  // particular case id exists in the database.
+  useEffect(()=>{
+    const cases = dashboardData.cases || [];
+    if(!cases.length){ if(selected) setSelected(null); return; }
+    if(!selected || !cases.some(c=>c.id===selected)) setSelected(cases[0].id);
+  },[dashboardData.cases]);
+
+  const priorityCases = useMemo(()=>{
+    const live = (dashboardData.cases||[]).map(c=>({id:c.id, name:c.name, risk:shortRisk(c.risk_band,c.score), reason:c.risk_band+" assessment", time:relativeTime(c.updated_at)}));
+    return live;
+  },[dashboardData]);
+
+  const risk = riskFromScore(distressScore);
+  const metrics = dashboardData.metrics || {};
+  const nav = [["dashboard","Dashboard","home"],["priority","Priority Cases","alert"],["handoffs","Handoff Queue","phone"],["all","All Cases","grid"],["messages","Messages","message"],["interventions","Interventions","heart"],["quality","Chat Quality","chart"],["resources","Resources","book"],["reports","Reports","chart"],["settings","Settings","gear"]];
+  const [navSel,setNavSel] = useState("dashboard");
+  const [newCaseOpen,setNewCaseOpen] = useState(false);
+
+  return (
+    <div className="min-h-screen flex bg-[#F4F6F9]">
+      <aside className="w-60 shrink-0 hidden md:flex flex-col bg-white border-r border-slate-200 px-4 py-6">
+        <div className="flex items-center gap-2.5 mb-8 px-1">
+          <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-700"><Icon name="leaf" size={18}/></div>
+          <div className="font-bold text-slate-900">Raahat</div>
+        </div>
+        <nav className="space-y-1 flex-1">
+          {nav.map(([id,label,icon])=>(
+            <button key={id} onClick={()=>setNavSel(id)} className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition ${navSel===id?"bg-emerald-50 text-emerald-800":"text-slate-500 hover:bg-slate-50"}`}>
+              <span className="flex items-center gap-3"><Icon name={icon} size={16}/>{label}</span>
+              {id==="priority" && <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">{priorityCases.length}</span>}
+            </button>
+          ))}
+        </nav>
+        <button onClick={logout} className="flex items-center gap-2 text-xs text-slate-400 hover:text-slate-600 px-1"><Icon name="logout" size={13}/> Sign out</button>
+      </aside>
+
+      <main className="flex-1 overflow-y-auto">
+        <MobileNav nav={nav} current={navSel} onSelect={setNavSel} onLogout={logout}/>
+        <div className="bg-white border-b border-slate-200 px-4 sm:px-6 py-3.5 flex items-center justify-between gap-3 sticky top-0 z-10">
+          <div className="relative w-96 max-w-[45vw]">
+            <Icon name="search" size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/>
+            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search cases, notes or resources…" className="w-full pl-9 pr-3 py-2 rounded-lg bg-slate-100 text-sm focus-ring"/>
+          </div>
+          <div className="flex items-center gap-4">
+            <button aria-label={`Notifications${alerts.length? ` (${alerts.length} active)`:""}`} className="relative p-2 rounded-lg hover:bg-slate-100"><Icon name="bell" size={18} className="text-slate-500"/>{alerts.length>0 && <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>}</button>
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-blue-900 text-white flex items-center justify-center text-xs font-bold">CS</div>
+              <div className="text-sm leading-tight"><div className="font-semibold text-slate-800">Counsellor</div><div className="text-[11px] text-slate-400">Counsellor</div></div>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-4 sm:p-6">
+          {(navSel==="dashboard" || navSel==="priority") && (<>
+          <h1 className="text-2xl font-bold text-slate-900">Good morning</h1>
+          <p className="text-slate-500 mb-5">Your work makes a difference.</p>
+
+          <div className="grid sm:grid-cols-4 gap-4 mb-6">
+            <MetricMini value={String(metrics.high_risk ?? 5)} label="High risk cases" sub="Require attention soon" color="var(--high)" icon="alert"/>
+            <MetricMini value={String(metrics.moderate_risk ?? 12)} label="Moderate risk cases" sub="Monitor and follow up" color="var(--moderate)" icon="alert"/>
+            <MetricMini value={String(Math.max((metrics.total_cases ?? 29)-(metrics.high_risk ?? 1)-(metrics.moderate_risk ?? 0),0))} label="Stable cases" sub="No immediate action" color="var(--minimal)" icon="leaf"/>
+            <MetricMini value={String((metrics.open_alerts ?? alerts.length)+dashboardData.events.length)} label="New updates" sub="From backend records" color="#1E4B8F" icon="message"/>
+          </div>
+
+          <div className="grid lg:grid-cols-[360px_1fr] gap-6">
+            <div className="bg-white rounded-2xl border border-slate-200 p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="font-semibold text-slate-800">{navSel==="priority"? "Priority cases (High/Moderate)":"Priority cases"}</div>
+                <div className="flex items-center gap-3">
+                  <button onClick={()=>setNewCaseOpen(true)} className="text-xs font-semibold text-emerald-700 flex items-center gap-1"><Icon name="plus" size={12}/> New case</button>
+                  <button onClick={()=>setNavSel("all")} className="text-xs font-semibold text-blue-700">View all</button>
+                </div>
+              </div>
+              <NewCaseModal open={newCaseOpen} onClose={()=>setNewCaseOpen(false)} onCreated={(created)=>{setSelected(created.id); setTab("overview");}}/>
+              <div className="space-y-1">
+                {(navSel==="priority"? priorityCases.filter(c=>c.risk==="High"||c.risk==="Moderate") : priorityCases).map(c=>(
+                  <button key={c.id} onClick={()=>{setSelected(c.id); setTab("overview");}} className={`w-full text-left px-3 py-3 rounded-xl border transition ${selected===c.id? "border-transparent bg-slate-900 text-white":"border-transparent hover:bg-slate-50"}`}>
+                    <div className="flex items-center justify-between">
+                      <span className={`font-semibold text-sm ${selected===c.id?"text-white":"text-slate-800"}`}>{c.name}</span>
+                      <span className={`text-[11px] ${selected===c.id?"text-white/60":"text-slate-400"}`}>{c.time}</span>
+                    </div>
+                    <div className={`text-xs mt-0.5 flex items-center gap-1.5 ${selected===c.id?"text-white/80":c.risk==="High"?"text-red-600":"text-amber-600"}`}>
+                      <span className="w-1.5 h-1.5 rounded-full" style={{background:c.risk==="High"?"var(--high)":"var(--moderate)"}}></span>
+                      {c.risk} risk · {c.reason}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <CaseDetailPanel caseId={selected} tab={tab} setTab={setTab}/>
+          </div>
+          </>)}
+
+          {navSel==="all" && (
+            <CounsellorAllCases
+              dashboardData={dashboardData}
+              onOpen={(id)=>{setSelected(id); setTab("overview"); setNavSel("dashboard");}}
+            />
+          )}
+          {navSel==="interventions" && <CounsellorInterventions dashboardData={dashboardData}/>} 
+          {navSel==="handoffs" && <HandoffQueue dashboardData={dashboardData}/>} 
+          {navSel==="quality" && <FeedbackAnalytics feedback={dashboardData.feedback}/>} 
+          {navSel==="reports" && <ReportsPage/>}
+          {navSel==="messages" && <PlaceholderPage title="Messages" body="Direct messaging between counsellors and cases is not available in this demo."/>}
+          {navSel==="resources" && <PlaceholderPage title="Resources" body="A shared library of coping tools, legal guides and referral contacts for counsellors."/>}
+          {navSel==="settings" && <PlaceholderPage title="Settings" body="Manage your notification preferences and profile details."/>}
+        </div>
+      </main>
+    </div>
+  );
+}
+
+function HandoffQueue({dashboardData}){
+  const cases = Object.fromEntries((dashboardData.cases||[]).map(c=>[c.id,c]));
+  const alerts = (dashboardData.alerts||[]).filter(a=>a.status!=="Resolved");
+  const followups = dashboardData.followups||[];
+  return <div className="fade-in max-w-4xl"><h1 className="text-2xl font-bold text-slate-900 mb-1">Handoff queue</h1><p className="text-slate-500 mb-5">Open safety escalations and scheduled care-team follow-ups.</p><div className="space-y-3">
+    {alerts.length===0 && followups.length===0 && <div className="text-sm text-slate-400 py-8 text-center">No active handoffs.</div>}
+    {alerts.map(a=><div key={"alert"+a.id} className="bg-white border-l-4 border-red-500 p-4 rounded-lg"><div className="flex justify-between"><span className="font-semibold text-slate-800">{(cases[a.case_id]||{}).name||"Case #"+a.case_id}</span><StatusPill status={a.status==="Unresolved"?"Open":a.status}/></div><div className="text-sm text-slate-500 mt-1">{a.reason}</div><div className="text-xs text-slate-400 mt-2">{a.severity} · {a.assigned_to||"Unassigned"}</div></div>)}
+    {followups.map(f=><div key={"follow"+f.id} className="bg-white border border-slate-200 p-4 rounded-lg"><div className="flex justify-between"><span className="font-semibold text-slate-800">{f.title}</span><StatusPill status={f.status}/></div><div className="text-sm text-slate-500 mt-1">Case #{f.case_id} · Assigned to {f.assigned_to||"Care team"}</div><div className="text-xs text-slate-400 mt-2">Due {f.due_at}</div></div>)}
+  </div></div>;
+}
+
+function FeedbackAnalytics({feedback}){
+  const data = feedback||{total:0,helpful:0,not_helpful:0,helpful_rate:0,by_intent:[]};
+  return <div className="fade-in max-w-4xl"><h1 className="text-2xl font-bold text-slate-900 mb-1">Chat quality</h1><p className="text-slate-500 mb-5">Participant feedback collected for future human review and RLHF dataset curation.</p><div className="grid sm:grid-cols-3 gap-4 mb-6">{[[data.total,"Ratings"],[data.helpful_rate+"%","Helpful rate"],[data.not_helpful,"Needs review"]].map(([value,label])=><MetricMini key={label} value={String(value)} label={label} sub="Chat feedback" color="#1E4B8F" icon="chart"/>)}</div><div className="bg-white rounded-xl border border-slate-200 p-5"><div className="font-semibold text-slate-800 mb-3">Feedback by intent</div>{data.by_intent.length===0?<div className="text-sm text-slate-400">No feedback collected yet.</div>:<div className="space-y-2">{data.by_intent.map((r,i)=><div key={i} className="flex justify-between text-sm border-b border-slate-50 pb-2"><span className="text-slate-600 capitalize">{r.topic||"general"} · {r.rating.replace("_"," ")}</span><span className="font-semibold text-slate-800">{r.count}</span></div>)}</div>}</div></div>;
+}
+
+function CounsellorAllCases({dashboardData,onOpen}){
+  const live = (dashboardData.cases||[]).map(c=>({id:c.id, name:c.name, risk:shortRisk(c.risk_band,c.score), score:c.score, district:c.district, updated:relativeTime(c.updated_at)}));
+  const rows = live;
+  return (
+    <div className="fade-in">
+      <h1 className="text-2xl font-bold text-slate-900 mb-1">All cases</h1>
+      <p className="text-slate-500 mb-5">Every case currently assigned to your caseload.</p>
+      <div className="bg-white rounded-2xl border border-slate-200 p-5 overflow-x-auto">
+        <table className="w-full text-sm min-w-[560px]">
+          <thead><tr className="text-left text-xs text-slate-400 border-b border-slate-100">{["Case","District","Risk","Score","Updated",""].map(h=>(<th key={h} className="pb-2.5 font-medium pr-4">{h}</th>))}</tr></thead>
+          <tbody>
+            {rows.map(c=>(
+              <tr key={c.id} className="border-b border-slate-50 hover:bg-slate-50/70">
+                <td className="py-2.5 pr-4 font-medium text-slate-700">{c.name}</td>
+                <td className="py-2.5 pr-4 text-slate-500">{c.district}</td>
+                <td className="py-2.5 pr-4"><RiskBadge level={c.risk}/></td>
+                <td className="py-2.5 pr-4 text-slate-500">{c.score}</td>
+                <td className="py-2.5 pr-4 text-slate-400">{c.updated}</td>
+                <td className="py-2.5 pr-4"><button onClick={()=>onOpen(c.id)} className="text-blue-700 font-semibold text-xs">Open</button></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function CounsellorInterventions({dashboardData}){
+  const casesById = Object.fromEntries((dashboardData.cases||[]).map(c=>[c.id,c]));
+  const rows = (dashboardData.interventions||[]).map(i=>({...i, caseName:(casesById[i.case_id]||{}).name || "Case #"+i.case_id}));
+  return (
+    <div className="fade-in max-w-4xl">
+      <h1 className="text-2xl font-bold text-slate-900 mb-1">Interventions</h1>
+      <p className="text-slate-500 mb-5">Every intervention recommended or recorded across your caseload.</p>
+      <div className="bg-white rounded-2xl border border-slate-200 p-5">
+        {rows.length===0 && <div className="text-sm text-slate-400 py-8 text-center">No interventions recorded yet.</div>}
+        <div className="space-y-2">
+          {rows.map(i=>(
+            <div key={i.id} className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-100 text-sm">
+              <span className="font-medium text-slate-700">{i.title} <span className="text-slate-400 font-normal">· {i.caseName}</span></span>
+              <span className="flex items-center gap-3"><span className="text-xs text-slate-400">{relativeTime(i.created_at)}</span><StatusPill status={i.status==="Completed"?"Resolved":i.status==="Active"?"In Progress":"Monitoring"}/></span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MetricMini({value,label,sub,color,icon}){
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200 p-4 flex items-center justify-between hover:shadow-md transition">
+      <div>
+        <div className="text-2xl font-bold" style={{color}}>{value}</div>
+        <div className="text-sm font-medium text-slate-700">{label}</div>
+        <div className="text-xs text-slate-400">{sub}</div>
+      </div>
+      <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{background:color+"22", color}}><Icon name={icon} size={17}/></div>
+    </div>
+  );
+}
+
+function CaseDetailPanel({caseId,tab,setTab}){
+  const {distressScore,weekLabels,interventionLog,setInterventionLog,checkins,dashboardData,refreshDashboard,addNote} = useApp();
+  const toast = useToast();
+  const liveCase = (dashboardData.cases||[]).find(c=>c.id===caseId);
+  // Every field comes from the backend row. Anything the schema does not store (age, gender,
+  // assigned counsellor) reads as unknown instead of being filled in with plausible fiction.
+  const info = liveCase? {
+    id:liveCase.id, name:liveCase.name, age:liveCase.age ?? "—", gender:liveCase.gender ?? "—",
+    district:liveCase.district, state:liveCase.state, category:liveCase.category||"Other",
+    registered: liveCase.created_at? new Date(liveCase.created_at).toLocaleDateString():"—", counsellor:"Unassigned",
+  } : {id:caseId,name:"Case #"+caseId,age:"—",gender:"—",district:"—",state:"—",category:"—",registered:"—",counsellor:"—"};
+  const score = liveCase? liveCase.score : 0;
+  const risk = riskFromScore(score);
+  const caseEvents = (dashboardData.events||[]).filter(e=>e.case_id===caseId);
+  const eventScores = [...caseEvents].reverse().map(e=>e.assessment.score);
+  // History is always derived from real backend events (for any live case, Asha included) — never a
+  // client-side accumulator, so a page reload shows the server's actual record, not a stale guess.
+  // A case with no recorded events gets an empty chart with an honest empty state, not an
+  // invented downward trend.
+  const caseHistory = eventScores.length>=2 ? eventScores : eventScores.length===1 ? [eventScores[0],eventScores[0]] : [];
+  const backendInterventions = (dashboardData.interventions||[]).filter(i=>i.case_id===caseId).map(i=>({id:"int-"+i.id,title:i.title,status:i.status,date:relativeTime(i.created_at)}));
+  const localInterventions = interventionLog.filter(i=>i.forCase===info.id);
+  const displayedInterventions = liveCase? [...localInterventions.filter(i=>i.forCase===info.id), ...backendInterventions] : localInterventions;
+  const displayedNotes = (dashboardData.notes||[]).filter(n=>n.case_id===info.id);
+  const displayedCheckins = checkins.filter(c=>c.caseId===info.id);
+  const [filter,setFilter] = useState("30D");
+  const [modal,setModal] = useState(null);
+  const [note,setNote] = useState("");
+  const [noteSaving,setNoteSaving] = useState(false);
+  const [overrideOpen,setOverrideOpen] = useState(false);
+  const [overrideForm,setOverrideForm] = useState({score,risk_band:risk.label.replace(" Risk",""),note:""});
+  const [overrideSaving,setOverrideSaving] = useState(false);
+
+  async function submitNote(){
+    if(!note.trim()) return;
+    setNoteSaving(true);
+    try {
+      await addNote(info.id, note.trim());
+      setNote("");
+      toast("Case note added.","success");
+    } catch { toast("Could not save the note. Please try again.","error"); }
+    finally { setNoteSaving(false); }
+  }
+
+  async function submitOverride(){
+    setOverrideSaving(true);
+    try {
+      await api(`/api/cases/${info.id}/override`, {score:Number(overrideForm.score), risk_band:overrideForm.risk_band, note:overrideForm.note}, "PATCH");
+      toast("Assessment overridden and logged for this case.","success");
+      setOverrideOpen(false);
+      await refreshDashboard();
+    } catch { toast("Could not save the override. Please try again.","error"); }
+    finally { setOverrideSaving(false); }
+  }
+
+  async function createFollowup(){
+    try {
+      await api(`/api/cases/${info.id}/followups`, {title:"Counsellor follow-up", due_at:new Date(Date.now()+86400000).toISOString(), assigned_to:info.counsellor||"Care team"});
+      await refreshDashboard(); toast("Follow-up task added to the handoff queue.","success");
+    } catch { toast("Could not create the follow-up task.","error"); }
+  }
+
+  // These used to be a fixed array ("Voice Stress: Elevated", "Threat Indicator: Reported")
+  // rendered identically for every case, including one with no assessment at all — signals the
+  // system never computes, presented to a counsellor as if measured. They are now read from
+  // this case's most recent assessment factors, and absent when there is no assessment.
+  // Real per-assessment explanation: pulled from the latest backend event for this case, not a
+  // fixed illustrative array — a case with no events yet (a brand-new case) shows an empty state
+  // instead of numbers that were never actually computed for it.
+  const latestAssessment = caseEvents.length ? caseEvents[0].assessment : null;
+  const factors = (latestAssessment?.factors || []).map(f=>({label:f.label, val:f.weight, suffix:"% relative weight"}));
+  const confidence = latestAssessment?.confidence;
+  const INDICATOR_SCALES = {mood:3, sleep:3, safety:2, anxiety:2, case_pressure:3, missed_checkins:10, engagement:4, text_risk:4};
+  const indicators = (latestAssessment?.factors || []).map(f=>{
+    const max = INDICATOR_SCALES[f.key] || 1;
+    // engagement is protective: a high raw value is a good sign, every other factor is the reverse
+    const severe = f.key === "engagement" ? f.value <= max/2 : f.value >= max/2;
+    return {k:f.label, v:`${f.value} / ${max}`, up:severe};
+  });
+
+  function runIntervention(title){
+    setModal(title);
+  }
+  function confirmIntervention(){
+    setInterventionLog(l=>[{id:Date.now(), title:modal, status:"Scheduled", date:"Today", forCase:info.id},...l]);
+    toast(`${modal} — action completed successfully.`,"success");
+    setModal(null);
+  }
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200 p-5">
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-14 h-14 rounded-full bg-slate-200"></div>
+          <div>
+            <div className="flex items-center gap-2"><span className="font-bold text-lg text-slate-900">{info.name}</span><RiskBadge level={risk.label}/></div>
+            <div className="text-xs text-slate-400">Case ID #{info.id} · {info.gender!=="—"? (info.age+" yrs"):"—"} · {info.district}, {info.state}</div>
+          </div>
+        </div>
+        <div className="text-right">
+          <div className="text-xs text-slate-400">
+            Last update<br/><span className="text-slate-600 font-medium">{liveCase? relativeTime(liveCase.updated_at) : "2h ago"}</span>
+            {liveCase && <><br/>Last check-in<br/><span className="text-slate-600 font-medium">{liveCase.last_checkin_at? relativeTime(liveCase.last_checkin_at) : "No check-in yet"}</span></>}
+          </div>
+          {liveCase && <button onClick={()=>exportReport(info.id)} className="mt-2 text-xs font-semibold text-blue-700 flex items-center gap-1 ml-auto"><Icon name="download" size={12}/> Export report</button>}
+        </div>
+      </div>
+
+      <div className="flex gap-5 border-b border-slate-100 mb-5 text-sm font-medium overflow-x-auto">
+        {["overview","notes","risk","interventions","history"].map(t=>(
+          <button key={t} onClick={()=>setTab(t)} className={`pb-2.5 border-b-2 capitalize whitespace-nowrap ${tab===t?"border-emerald-600 text-emerald-700":"border-transparent text-slate-400 hover:text-slate-600"}`}>
+            {t==="risk"?"Risk indicators":t}
+          </button>
+        ))}
+      </div>
+
+      {tab==="overview" && (
+        <div className="grid lg:grid-cols-[1fr_320px] gap-6">
+          <div>
+            <div className="text-sm font-semibold text-slate-700 mb-1.5">Current situation</div>
+            <p className="text-sm text-slate-500 leading-relaxed mb-5">Latest backend assessments, check-ins and chat events are synced here for human review. Close follow-up is recommended when the score or alerts increase.</p>
+            <div className="text-sm font-semibold text-slate-700 mb-2">Key indicators</div>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-2 mb-5">
+              {indicators.length===0 && <div className="col-span-2 text-sm text-slate-400">No assessment recorded for this case yet.</div>}
+              {indicators.map(k=>(
+                <div key={k.k} className="flex items-center justify-between text-sm py-1 border-b border-slate-50">
+                  <span className="text-slate-500">{k.k}</span>
+                  <span className={`font-medium flex items-center gap-1 ${k.up?"text-red-600":"text-amber-600"}`}>{k.v} <Icon name="trend" size={13}/></span>
+                </div>
+              ))}
+            </div>
+            <ExplainableAICard score={score} factors={factors} confidence={confidence}/>
+          </div>
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-sm font-semibold text-slate-700">Distress trend</div>
+              <select value={filter} onChange={e=>setFilter(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1 text-slate-500">
+                <option>30D</option><option>3M</option><option>6M</option><option>Entire Case</option>
+              </select>
+            </div>
+            <DistressLineChart data={caseHistory} weekLabels={weekLabels.slice(-caseHistory.length)} height={190}/>
+            <div className="mt-4 space-y-2">
+              <button onClick={createFollowup} className="w-full py-2.5 rounded-xl bg-slate-900 text-white text-sm font-semibold flex items-center justify-center gap-2"><Icon name="phone" size={14}/> Prepare follow-up</button>
+              <div className="grid grid-cols-2 gap-2">
+                <button onClick={()=>runIntervention("Schedule Counselling")} className="py-2 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 flex items-center justify-center gap-1"><Icon name="calendar" size={13}/> Schedule check-in</button>
+                <button onClick={()=>runIntervention("Add Case Note")} className="py-2 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 flex items-center justify-center gap-1"><Icon name="file" size={13}/> Add case note</button>
+              </div>
+              {liveCase && (
+                <button onClick={()=>{setOverrideForm({score,risk_band:risk.label.replace(" Risk",""),note:""}); setOverrideOpen(true);}} className="w-full py-2 rounded-lg border border-amber-200 bg-amber-50 text-xs font-semibold text-amber-800 flex items-center justify-center gap-1"><Icon name="gear" size={13}/> Override AI assessment</button>
+              )}
+            </div>
+            <div className="mt-3 text-xs bg-emerald-50 text-emerald-800 rounded-lg p-3">A timely conversation can change the trajectory. Thank you for being here.</div>
+          </div>
+        </div>
+      )}
+
+      {tab==="notes" && (
+        <div>
+          {liveCase ? (
+            <div className="flex gap-2 mb-4">
+              <input value={note} onChange={e=>setNote(e.target.value)} onKeyDown={e=>{if(e.key==="Enter") submitNote();}} placeholder="Add a case note…" className="flex-1 px-3.5 py-2.5 rounded-lg border border-slate-200 text-sm focus-ring"/>
+              <button disabled={noteSaving} onClick={submitNote} className="px-4 py-2.5 rounded-lg bg-slate-900 text-white text-sm font-semibold disabled:opacity-50">{noteSaving? "Saving…":"Add"}</button>
+            </div>
+          ) : (
+            <div className="text-xs text-slate-400 mb-4">Notes can only be added to a registered case (this demo entry has no backend record).</div>
+          )}
+          <div className="space-y-3">
+            {displayedNotes.length===0 && <div className="text-sm text-slate-400 py-6 text-center">No notes yet for this case.</div>}
+            {displayedNotes.map(n=>(
+              <div key={n.id} className="p-4 rounded-xl bg-slate-50 border border-slate-100">
+                <div className="flex justify-between text-xs text-slate-400 mb-1"><span className="font-semibold text-slate-600">{n.author}</span><span>{relativeTime(n.created_at)}</span></div>
+                <div className="text-sm text-slate-600">{n.text}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {tab==="risk" && (
+        <div className="space-y-4 max-w-xl">
+          {[
+            {label:"Sentiment (text)", value:78, color:"var(--high)"}, {label:"Voice stress", value:70, color:"var(--moderate)"},
+            {label:"Engagement decline", value:55, color:"var(--moderate)"}, {label:"Sleep disruption", value:64, color:"var(--moderate)"},
+            {label:"Threat / safety signal", value:88, color:"var(--critical)"}, {label:"Court-related stress", value:60, color:"var(--moderate)"},
+          ].map((f,i)=>(
+            <div key={i}>
+              <div className="flex justify-between text-sm mb-1"><span className="text-slate-600 font-medium">{f.label}</span><span className="text-slate-400">{f.value}/100</span></div>
+              <div className="h-2 rounded-full bg-slate-100 overflow-hidden"><div className="h-full rounded-full" style={{width:f.value+"%", background:f.color}}></div></div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {tab==="interventions" && (
+        <div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2.5 mb-6">
+            {["Contact Victim","Schedule Counselling","Medical Referral","Notify District Authority","Request Witness Protection","Relocation Support","Financial Assistance","Legal Aid","Rehabilitation Support","Resolve Alert"].map(a=>(
+              <button key={a} onClick={()=>runIntervention(a)} className="px-3 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-800 transition text-left">{a}</button>
+            ))}
+          </div>
+          <div className="text-sm font-semibold text-slate-700 mb-2">Intervention history</div>
+          <div className="space-y-2">
+            {displayedInterventions.length===0 && <div className="text-sm text-slate-400 py-6 text-center">No interventions recorded yet for this case.</div>}
+            {displayedInterventions.map(i=>(
+              <div key={i.id} className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-100 text-sm">
+                <span className="font-medium text-slate-700">{i.title}</span>
+                <span className="flex items-center gap-3"><span className="text-xs text-slate-400">{i.date}</span><StatusPill status={i.status==="Completed"?"Resolved":i.status==="Active"?"In Progress":i.status==="Scheduled"?"Open":"Monitoring"}/></span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {tab==="history" && (
+        <div className="relative pl-6">
+          <div className="absolute left-2 top-1 bottom-1 w-px bg-slate-200"></div>
+          {displayedCheckins.length===0 && <div className="text-sm text-slate-400 -ml-4">No recorded activity for this case yet.</div>}
+          {displayedCheckins.map(c=>({id:c.id, t:c.summary, d:c.date})).map(e=>(
+            <div key={e.id} className="relative mb-5">
+              <div className="absolute -left-[22px] top-1 w-2.5 h-2.5 rounded-full bg-emerald-600"></div>
+              <div className="text-sm font-semibold text-slate-700">{e.t}</div>
+              <div className="text-xs text-slate-400">{e.d}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <Modal open={!!modal} onClose={()=>setModal(null)} title={modal||""}>
+        <p className="text-sm text-slate-500 mb-5">Confirm this demo action for <span className="font-semibold text-slate-700">{info.name}</span>. This logs the action locally for the case review flow.</p>
+        <div className="flex gap-2">
+          <button onClick={()=>setModal(null)} className="flex-1 py-2.5 rounded-lg border border-slate-200 text-sm font-semibold text-slate-500">Cancel</button>
+          <button onClick={confirmIntervention} className="flex-1 py-2.5 rounded-lg bg-emerald-700 text-white text-sm font-semibold">Confirm</button>
+        </div>
+      </Modal>
+
+      <Modal open={overrideOpen} onClose={()=>setOverrideOpen(false)} title="Override AI assessment">
+        <p className="text-xs text-slate-500 mb-4">Use this when your professional judgement differs from the model's output for <span className="font-semibold text-slate-700">{info.name}</span>. The override is logged with your note for audit.</p>
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs font-semibold text-slate-500 mb-1">Distress score (0–100)</label>
+            <input type="number" min="0" max="100" value={overrideForm.score} onChange={e=>setOverrideForm(f=>({...f,score:e.target.value}))} className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-sm focus-ring"/>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-500 mb-1">Risk band</label>
+            <select value={overrideForm.risk_band} onChange={e=>setOverrideForm(f=>({...f,risk_band:e.target.value}))} className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-sm">
+              {["Stable","Low","Moderate","High","Critical"].map(b=>(<option key={b} value={b}>{b}</option>))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-500 mb-1">Reason for override</label>
+            <textarea value={overrideForm.note} onChange={e=>setOverrideForm(f=>({...f,note:e.target.value}))} rows={3} className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-sm focus-ring" placeholder="e.g. Spoke with the case in person; situation has stabilized since the last check-in."/>
+          </div>
+          <button disabled={overrideSaving} onClick={submitOverride} className="w-full py-2.5 rounded-lg bg-amber-600 text-white font-semibold disabled:opacity-50">{overrideSaving? "Saving…":"Save override"}</button>
+        </div>
+      </Modal>
+    </div>
+  );
+}
+
+function ExplainableAICard({score,factors,confidence}){
+  return (
+    <div className="rounded-xl border border-slate-200 p-4">
+      <div className="flex items-center justify-between mb-1">
+        <div className="font-semibold text-sm text-slate-800 flex items-center gap-2"><Icon name="sparkle" size={15}/> Why is this case {riskFromScore(score).label}?</div>
+        {confidence!=null && <span className="text-xs font-semibold text-slate-400">Model confidence {confidence}%</span>}
+      </div>
+      <div className="text-2xl font-bold text-slate-900 mb-3">{score} <span className="text-sm font-normal text-slate-400">/ 100 Dynamic Distress Score</span></div>
+      {factors.length>0 ? (
+        <div className="space-y-2.5 mb-3">
+          {factors.map((f,i)=>(
+            <div key={i}>
+              <div className="flex justify-between text-xs text-slate-500 mb-1"><span>{f.label}</span><span className="font-medium text-slate-700">{f.val}{f.suffix}</span></div>
+              <div className="h-1.5 rounded-full bg-slate-100"><div className="h-full rounded-full bg-blue-700" style={{width:Math.min(f.val,100)+"%"}}></div></div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="text-xs text-slate-400 mb-3">No assessment recorded for this case yet — factors will appear after the first check-in or chat message.</div>
+      )}
+      <div className="text-[11px] text-slate-400 leading-relaxed border-t border-slate-100 pt-2">Factor weights are relative to each other for this specific assessment (from the trained model's feature importances and this case's actual answers), not raw percentages. This highlights contributing signals and does not replace professional judgement.</div>
+    </div>
+  );
+}
+
+/* ============================== ADMIN APP ============================== */
+const STATES = [
+  {name:"Delhi", districts:[
+    {name:"South Delhi", total:1240, high:14, moderate:38, low:52, minimal:31, avg:58, alerts:9, trend:[40,44,47,50,54,58]},
+    {name:"Central Delhi", total:980, high:8, moderate:26, low:40, minimal:28, avg:47, alerts:5, trend:[35,37,40,42,45,47]},
+    {name:"North Delhi", total:860, high:6, moderate:20, low:34, minimal:30, avg:41, alerts:3, trend:[30,32,35,37,39,41]},
+  ]},
+  {name:"Maharashtra", districts:[
+    {name:"Pune", total:1510, high:18, moderate:44, low:60, minimal:38, avg:56, alerts:11, trend:[38,42,45,49,53,56]},
+    {name:"Mumbai Suburban", total:2010, high:22, moderate:58, low:70, minimal:44, avg:60, alerts:15, trend:[42,46,50,54,57,60]},
+  ]},
+  {name:"Uttar Pradesh", districts:[
+    {name:"Lucknow", total:1350, high:16, moderate:40, low:55, minimal:33, avg:53, alerts:8, trend:[36,39,43,47,50,53]},
+    {name:"Kanpur Nagar", total:1120, high:12, moderate:30, low:46, minimal:29, avg:48, alerts:6, trend:[33,36,39,43,46,48]},
+  ]},
+  {name:"Tamil Nadu", districts:[
+    {name:"Chennai", total:1430, high:15, moderate:36, low:50, minimal:35, avg:50, alerts:7, trend:[34,37,40,44,47,50]},
+    {name:"Coimbatore", total:790, high:5, moderate:18, low:28, minimal:24, avg:38, alerts:2, trend:[27,29,31,34,36,38]},
+  ]},
+  {name:"Karnataka", districts:[
+    {name:"Bengaluru Urban", total:1680, high:19, moderate:47, low:62, minimal:40, avg:55, alerts:10, trend:[37,41,44,48,52,55]},
+  ]},
+  {name:"West Bengal", districts:[
+    {name:"Kolkata", total:1290, high:13, moderate:34, low:48, minimal:32, avg:49, alerts:6, trend:[34,36,39,43,46,49]},
+  ]},
+  {name:"Rajasthan", districts:[
+    {name:"Jaipur", total:1050, high:10, moderate:28, low:42, minimal:30, avg:45, alerts:5, trend:[32,34,37,40,43,45]},
+  ]},
+  {name:"Madhya Pradesh", districts:[
+    {name:"Bhopal", total:920, high:7, moderate:22, low:36, minimal:28, avg:42, alerts:4, trend:[30,32,35,38,40,42]},
+  ]},
+];
+
+const CASE_CATEGORIES = ["Rape / Gang Rape","Murder","Grievous Hurt","Arson","Witness Intimidation","Threats","Caste-Based Violence","Other"];
+
+const VULNERABLE_CASES = [
+  {id:"DW-2025-0142", age:"15–17", gender:"Female", district:"South Delhi", risk:"High", score:86, concern:"Self-harm risk", updated:"12 Jun 2026", status:"Open"},
+  {id:"DW-2025-0137", age:"12–14", gender:"Male", district:"Pune", risk:"Moderate", score:58, concern:"School non-attendance", updated:"11 Jun 2026", status:"In Progress"},
+  {id:"DW-2025-0131", age:"15–17", gender:"Female", district:"Lucknow", risk:"High", score:81, concern:"Social isolation", updated:"10 Jun 2026", status:"Open"},
+  {id:"DW-2025-0129", age:"10–12", gender:"Male", district:"Chennai", risk:"Low", score:38, concern:"Family stress", updated:"09 Jun 2026", status:"Monitoring"},
+  {id:"DW-2025-0124", age:"15–17", gender:"Non-binary", district:"Kolkata", risk:"Moderate", score:55, concern:"Anxiety indicators", updated:"08 Jun 2026", status:"Open"},
+  {id:"DW-2025-0119", age:"18–24", gender:"Female", district:"South Delhi", risk:"High", score:78, concern:"Witness intimidation", updated:"07 Jun 2026", status:"In Progress"},
+  {id:"DW-2025-0110", age:"25–34", gender:"Female", district:"Jaipur", risk:"Moderate", score:52, concern:"Financial distress", updated:"05 Jun 2026", status:"Monitoring"},
+  {id:"DW-2025-0104", age:"12–14", gender:"Male", district:"Bhopal", risk:"Low", score:33, concern:"Sleep disruption", updated:"03 Jun 2026", status:"Resolved"},
+];
+
+function AdminApp(){
+  const {logout,dashboardData,refreshDashboard} = useApp();
+  const toast = useToast();
+  const [level,setLevel] = useState("state"); // district | state | national
+  const [selState,setSelState] = useState("Delhi");
+  const [selDistrict,setSelDistrict] = useState("South Delhi");
+  const [period,setPeriod] = useState("6 months");
+  const [navSel,setNavSel] = useState("dashboard");
+  const [search,setSearch] = useState("");
+  const [riskFilter,setRiskFilter] = useState("All");
+  const [newCaseOpen,setNewCaseOpen] = useState(false);
+
+  const nav = [["dashboard","Dashboard","home"],["people","People & Cases","users"],["alerts","Alerts","alert"],["districts","Districts","map"],["reports","Reports","chart"],["data","Data & Integrations","database"],["settings","Settings","gear"]];
+  useEffect(()=>{ refreshDashboard(); },[]);
+
+  const stateObj = STATES.find(s=>s.name===selState) || STATES[0];
+  const districtObj = stateObj.districts.find(d=>d.name===selDistrict) || stateObj.districts[0];
+
+  // aggregate helpers
+  function aggAll(){
+    let total=0,high=0,moderate=0,low=0,minimal=0,alerts=0,avgSum=0,n=0;
+    STATES.forEach(s=>s.districts.forEach(d=>{ total+=d.total; high+=d.high; moderate+=d.moderate; low+=d.low; minimal+=d.minimal; alerts+=d.alerts; avgSum+=d.avg; n++; }));
+    return {total,high,moderate,low,minimal,alerts,avg:Math.round(avgSum/n)};
+  }
+  function aggState(s){
+    let total=0,high=0,moderate=0,low=0,minimal=0,alerts=0,avgSum=0,n=0;
+    s.districts.forEach(d=>{ total+=d.total; high+=d.high; moderate+=d.moderate; low+=d.low; minimal+=d.minimal; alerts+=d.alerts; avgSum+=d.avg; n++; });
+    return {total,high,moderate,low,minimal,alerts,avg:Math.round(avgSum/n)};
+  }
+
+  let metrics, title;
+  if(level==="national"){ metrics = aggAll(); title="National overview"; }
+  else if(level==="state"){ metrics = aggState(stateObj); title=selState+" — State overview"; }
+  else { metrics = districtObj; title=selDistrict+", "+selState+" — District overview"; }
+  const live = dashboardData.metrics || {};
+  metrics = {
+    ...metrics,
+    total: metrics.total + (live.total_cases || 0),
+    high: metrics.high + (live.high_risk || 0),
+    moderate: metrics.moderate + (live.moderate_risk || 0),
+    alerts: metrics.alerts + (live.open_alerts || 0),
+    avg: live.avg_distress || metrics.avg,
+  };
+
+  const liveCases = [...(dashboardData.cases||[]).map(backendCaseRow), ...VULNERABLE_CASES.filter(c=>!(dashboardData.cases||[]).some(live=>live.id===c.id))];
+  const filteredCases = liveCases.filter(c=>{
+    const matchSearch = search==="" || c.id.toLowerCase().includes(search.toLowerCase()) || c.district.toLowerCase().includes(search.toLowerCase());
+    const matchRisk = riskFilter==="All" || c.risk===riskFilter;
+    return matchSearch && matchRisk;
+  });
+
+  return (
+    <div className="min-h-screen flex bg-[#F4F6F9]">
+      <aside className="w-60 shrink-0 hidden md:flex flex-col bg-white border-r border-slate-200 px-4 py-6">
+        <div className="flex items-center gap-2.5 mb-8 px-1">
+          <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-700"><Icon name="leaf" size={18}/></div>
+          <div className="font-bold text-slate-900">Raahat</div>
+        </div>
+        <nav className="space-y-1 flex-1">
+          {nav.map(([id,label,icon])=>(
+            <button key={id} onClick={()=>setNavSel(id)} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition ${navSel===id?"bg-blue-50 text-blue-800":"text-slate-500 hover:bg-slate-50"}`}>
+              <Icon name={icon} size={16}/>{label}
+            </button>
+          ))}
+        </nav>
+        <button onClick={logout} className="flex items-center gap-2 text-xs text-slate-400 hover:text-slate-600 px-1"><Icon name="logout" size={13}/> Sign out</button>
+      </aside>
+
+      <main className="flex-1 overflow-y-auto">
+        <MobileNav nav={nav} current={navSel} onSelect={setNavSel} onLogout={logout}/>
+        <div className="bg-white border-b border-slate-200 px-4 sm:px-6 py-3.5 flex items-center justify-between gap-3 sticky top-0 z-10">
+          <div className="flex items-center gap-1.5 text-sm font-medium text-slate-500">
+            <span className="text-slate-900 font-bold">Raahat</span>
+            <span className="text-slate-300 mx-1">·</span>
+            {["People","Insight","Early Support","Stronger Communities"].map((x,i)=>(<span key={i} className="hidden lg:inline text-slate-400">{i>0 && "· "}{x}</span>))}
+          </div>
+          <div className="relative w-80 max-w-[40vw]">
+            <Icon name="search" size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/>
+            <input placeholder="Search by name, district, or case ID…" className="w-full pl-9 pr-3 py-2 rounded-lg bg-slate-100 text-sm focus-ring"/>
+          </div>
+          <div className="flex items-center gap-4">
+            <button aria-label="Notifications" className="p-2 rounded-lg hover:bg-slate-100"><Icon name="bell" size={18} className="text-slate-500"/></button>
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-teal-700 text-white flex items-center justify-center text-xs font-bold">AD</div>
+              <div className="text-sm leading-tight"><div className="font-semibold text-slate-800">Admin User</div><div className="text-[11px] text-slate-400">National View</div></div>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-4 sm:p-6">
+          {/* The district/state rollups below come from a fixed simulated dataset (STATES), with
+              this database's real cases added on top. Saying so on screen matters: an oversight
+              dashboard that mixes simulated and real counts without a label invites someone to
+              read 1,240 cases as a measurement. */}
+          {navSel==="dashboard" && (
+            <div className="mb-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-900">
+              <Icon name="alert" size={14}/>
+              <span><strong>Simulated aggregates.</strong> District and state rollups are demo data used to show the drill-down; only case counts, alerts and scores sourced from this database are real.</span>
+            </div>
+          )}
+          {navSel==="dashboard" && (
+            <>
+              <div className="flex flex-wrap items-end justify-between gap-4 mb-5">
+                <div>
+                  <h1 className="text-2xl font-bold text-slate-900 capitalize">{title}</h1>
+                  <p className="text-slate-500 text-sm">Monitor indicators of distress, support at-risk individuals, and track response across {level==="national"?"the country":level==="state"?"districts":"the district"}.</p>
+                </div>
+                <div className="flex gap-3 flex-wrap">
+                  <FilterSelect label="Level" value={level} onChange={v=>setLevel(v)} options={["national","state","district"]} display={{national:"National",state:"State",district:"District"}}/>
+                  <FilterSelect label="State" value={selState} onChange={v=>{setSelState(v); setSelDistrict(STATES.find(s=>s.name===v).districts[0].name);}} options={STATES.map(s=>s.name)}/>
+                  {level!=="national" && <FilterSelect label="District" value={selDistrict} onChange={setSelDistrict} options={stateObj.districts.map(d=>d.name)}/>}
+                  <FilterSelect label="Time period" value={period} onChange={setPeriod} options={["30 days","3 months","6 months","1 year"]}/>
+                </div>
+              </div>
+
+              <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <MetricMini value={metrics.total.toLocaleString()} label={level==="district"?"Total monitored":"Total population (monitored)"} sub="↑ 4% from previous period" color="#1E4B8F" icon="users"/>
+                <MetricMini value={String(metrics.high + metrics.moderate)} label="Vulnerable cases" sub="↑ 2% from previous period" color="var(--moderate)" icon="alert"/>
+                <MetricMini value={String(metrics.alerts)} label="Open alerts" sub="↑ 18% from previous period" color="var(--high)" icon="bell"/>
+                <MetricMini value="89%" label="Response rate" sub="↑ 6% from previous period" color="var(--teal)" icon="shield"/>
+              </div>
+
+              <div className="grid lg:grid-cols-3 gap-5 mb-6">
+                <div className="bg-white rounded-2xl border border-slate-200 p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="font-semibold text-slate-800">{level==="national"? "National risk map":level==="state"?"District risk map":"Ward risk map"}</div>
+                    <span className="text-xs text-slate-400">{level==="national"?"State view":level==="state"?"District view":"Ward view"}</span>
+                  </div>
+                  <AbstractMap level={level} states={STATES} selState={selState} stateObj={stateObj}
+                    onSelectState={(name)=>{setSelState(name); setLevel("state"); setSelDistrict(STATES.find(s=>s.name===name).districts[0].name);}}
+                    onSelectDistrict={(name)=>{setSelDistrict(name); setLevel("district");}}/>
+                  <div className="flex flex-wrap gap-3 mt-3 text-[11px] text-slate-500">
+                    {[["High risk","var(--high)"],["Moderate risk","var(--moderate)"],["Low risk","var(--low)"],["Minimal risk","var(--minimal)"],["No data","#D8DCE3"]].map((l,i)=>(
+                      <span key={i} className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full inline-block" style={{background:l[1]}}></span>{l[0]}</span>
+                    ))}
+                  </div>
+                </div>
+                <div className="bg-white rounded-2xl border border-slate-200 p-5">
+                  <div className="font-semibold text-slate-800 mb-3">Risk distribution</div>
+                  <BarChartSimple width={340} height={210} data={[
+                    {label:"High", value:metrics.high, color:"var(--high)"},{label:"Moderate", value:metrics.moderate, color:"var(--moderate)"},
+                    {label:"Low", value:metrics.low, color:"var(--low)"},{label:"Minimal", value:metrics.minimal, color:"var(--minimal)"},
+                  ]}/>
+                </div>
+                <div className="bg-white rounded-2xl border border-slate-200 p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="font-semibold text-slate-800">Open alerts</div>
+                    <span className="text-xs text-slate-400">{period}</span>
+                  </div>
+                  <LineTrendMini width={340} height={210} color="#1E4B8F" data={
+                    (level==="district"? districtObj.trend : level==="state"? stateObj.districts[0].trend : STATES[0].districts[0].trend).map((v,i)=>({label:["Jan","Feb","Mar","Apr","May","Jun"][i], value:Math.round(v/2)}))
+                  }/>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-2xl border border-slate-200 p-5">
+                <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+                  <div className="font-semibold text-slate-800">Vulnerable cases</div>
+                  <div className="flex gap-2 items-center">
+                    <div className="relative">
+                      <Icon name="search" size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"/>
+                      <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search case or district" className="pl-8 pr-3 py-1.5 rounded-lg bg-slate-100 text-xs w-48 focus-ring"/>
+                    </div>
+                    <select value={riskFilter} onChange={e=>setRiskFilter(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 text-slate-500">
+                      {["All","High","Moderate","Low"].map(o=>(<option key={o}>{o}</option>))}
+                    </select>
+                    <button onClick={()=>setNewCaseOpen(true)} className="text-xs font-semibold text-emerald-700 flex items-center gap-1"><Icon name="plus" size={12}/> New case</button>
+                    <button className="text-xs font-semibold text-blue-700">View all</button>
+                  </div>
+                </div>
+                <NewCaseModal open={newCaseOpen} onClose={()=>setNewCaseOpen(false)} onCreated={()=>toast("Case added to the monitored list below.","success")}/>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm min-w-[820px]">
+                    <thead>
+                      <tr className="text-left text-xs text-slate-400 border-b border-slate-100">
+                        {["Case ID","Age group","Gender","District","Risk level","Score","Primary concern","Last updated","Status","Actions"].map(h=>(<th key={h} className="pb-2.5 font-medium pr-4">{h}</th>))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredCases.map(c=>(
+                        <tr key={c.id} className="border-b border-slate-50 hover:bg-slate-50/70">
+                          <td className="py-2.5 pr-4 font-medium text-slate-700">{c.id}</td>
+                          <td className="py-2.5 pr-4 text-slate-500">{c.age}</td>
+                          <td className="py-2.5 pr-4 text-slate-500">{c.gender}</td>
+                          <td className="py-2.5 pr-4 text-slate-500">{c.district}</td>
+                          <td className="py-2.5 pr-4"><RiskBadge level={c.risk}/></td>
+                          <td className="py-2.5 pr-4 text-slate-500">{c.score}</td>
+                          <td className="py-2.5 pr-4 text-slate-500">{c.concern}</td>
+                          <td className="py-2.5 pr-4 text-slate-400">{c.updated}</td>
+                          <td className="py-2.5 pr-4"><StatusPill status={c.status}/></td>
+                          <td className="py-2.5 pr-4"><button onClick={()=>toast(`Opening ${c.id}…`)} className="text-blue-700 font-semibold text-xs">View</button></td>
+                        </tr>
+                      ))}
+                      {filteredCases.length===0 && <tr><td colSpan="10" className="py-8 text-center text-slate-400 text-sm">No cases match this filter.</td></tr>}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          )}
+
+          {navSel==="alerts" && <AlertsPage/>}
+          {navSel==="reports" && <ReportsPage/>}
+          {navSel==="people" && <PeopleCasesPage cases={liveCases}/>}
+          {navSel==="districts" && <DistrictsListPage states={STATES}/>}
+          {navSel==="data" && <LiveDatabasePage/>}
+          {navSel==="settings" && <PlaceholderPage title="Settings" body="Manage roles, permissions and notification preferences."/>}
+        </div>
+      </main>
+    </div>
+  );
+}
+
+function FilterSelect({label,value,onChange,options,display}){
+  return (
+    <div className="text-xs">
+      <div className="text-slate-400 mb-1 font-medium">{label}</div>
+      <select value={value} onChange={e=>onChange(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-slate-700 text-sm bg-white min-w-[130px]">
+        {options.map(o=>(<option key={o} value={o}>{display?display[o]:o}</option>))}
+      </select>
+    </div>
+  );
+}
+
+function riskColorFor(avg){
+  if(avg>=70) return "var(--high)"; if(avg>=50) return "var(--moderate)"; if(avg>=30) return "var(--low)"; return "var(--minimal)";
+}
+
+function AbstractMap({level,states,selState,stateObj,onSelectState,onSelectDistrict}){
+  const [hover,setHover] = useState(null);
+  if(level==="national"){
+    const cols = 4;
+    return (
+      <div>
+        <div className="grid grid-cols-4 gap-2.5">
+          {states.map((s,i)=>{
+            const avg = Math.round(s.districts.reduce((a,d)=>a+d.avg,0)/s.districts.length);
+            return (
+              <button key={s.name} onMouseEnter={()=>setHover(s)} onMouseLeave={()=>setHover(null)} onClick={()=>onSelectState(s.name)}
+                className="aspect-square rounded-xl flex items-center justify-center text-center p-1.5 text-[10px] font-semibold text-white/95 hover:scale-105 transition"
+                style={{background:riskColorFor(avg)}}>
+                {s.name}
+              </button>
+            );
+          })}
+        </div>
+        {hover && <div className="mt-3 text-xs bg-slate-50 rounded-lg p-3 border border-slate-100">
+          <div className="font-semibold text-slate-700">{hover.name}</div>
+          <div className="text-slate-500">Victims monitored: {hover.districts.reduce((a,d)=>a+d.total,0).toLocaleString()} · High risk: {hover.districts.reduce((a,d)=>a+d.high,0)} · Avg distress: {Math.round(hover.districts.reduce((a,d)=>a+d.avg,0)/hover.districts.length)}</div>
+        </div>}
+      </div>
+    );
+  }
+  if(level==="state"){
+    return (
+      <div>
+        <div className="grid grid-cols-3 gap-2.5">
+          {stateObj.districts.map(d=>(
+            <button key={d.name} onMouseEnter={()=>setHover(d)} onMouseLeave={()=>setHover(null)} onClick={()=>onSelectDistrict(d.name)}
+              className="rounded-xl p-3 text-left text-white text-xs font-semibold hover:scale-105 transition h-24 flex flex-col justify-between"
+              style={{background:riskColorFor(d.avg)}}>
+              <span>{d.name}</span>
+              <span className="text-[10px] font-normal opacity-90">Avg {d.avg} · {d.high} high risk</span>
+            </button>
+          ))}
+        </div>
+        {hover && <div className="mt-3 text-xs bg-slate-50 rounded-lg p-3 border border-slate-100">
+          <div className="font-semibold text-slate-700">{hover.name}</div>
+          <div className="text-slate-500">Cases: {hover.total} · High risk: {hover.high} · Open alerts: {hover.alerts} · Avg distress: {hover.avg}</div>
+        </div>}
+      </div>
+    );
+  }
+  // district level: show ward-style breakdown (synthetic)
+  const wards = ["Ward A","Ward B","Ward C","Ward D","Ward E","Ward F"];
+  return (
+    <div className="grid grid-cols-3 gap-2.5">
+      {wards.map((w,i)=>(
+        <div key={w} className="rounded-xl p-3 text-white text-xs font-semibold h-20 flex items-end" style={{background:riskColorFor(30+i*11)}}>{w}</div>
+      ))}
+    </div>
+  );
+}
+
+function AlertsPage(){
+  const {dashboardData,updateAlert} = useApp();
+  const toast = useToast();
+  const [busy,setBusy] = useState(null);
+  const casesById = Object.fromEntries((dashboardData.cases||[]).map(c=>[c.id,c]));
+  const live = (dashboardData.alerts||[]).map(a=>{
+    const c = casesById[a.case_id] || {};
+    return {
+      id:a.id, real:true, caseId:"Case #"+a.case_id, name:c.name, district:c.district||"—", score:c.score ?? "—",
+      reason:(a.reason||"").split("; ").filter(Boolean), severity:a.severity, status:a.status, assignedTo:a.assigned_to,
+    };
+  });
+  const seeded = [
+    {id:"s1", real:false, caseId:"DW-2026-0142", district:"South Delhi", score:86, reason:["Threat reported","Negative sentiment spike","Voice stress elevated"], severity:"Critical", status:"Unresolved"},
+    {id:"s2", real:false, caseId:"DW-2026-0098", district:"Pune", score:74, reason:["Missed two check-ins","Sentiment decline"], severity:"High", status:"Unresolved"},
+    {id:"s3", real:false, caseId:"DW-2026-0071", district:"Lucknow", score:66, reason:["Sleep disruption","Court hearing upcoming"], severity:"Moderate", status:"Unresolved"},
+  ];
+  const all = [...live, ...seeded];
+
+  async function act(alertId, patch, label){
+    setBusy(alertId);
+    try { await updateAlert(alertId, patch); toast(label,"success"); }
+    catch { toast("Could not update the alert. Please try again.","error"); }
+    finally { setBusy(null); }
+  }
+
+  return (
+    <div className="fade-in max-w-4xl">
+      <h1 className="text-2xl font-bold text-slate-900 mb-1">Alerts</h1>
+      <p className="text-slate-500 mb-6">Real-time escalation alerts across all monitored cases.</p>
+      <div className="space-y-4">
+        {all.length===0 && <div className="text-sm text-slate-400 py-8 text-center">No alerts right now.</div>}
+        {all.map(a=>(
+          <div key={a.id} className="bg-white rounded-2xl border-l-4 p-5" style={{borderColor: a.severity==="Critical"?"var(--critical)":a.severity==="High"?"var(--high)":"var(--moderate)"}}>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2 font-bold text-sm" style={{color: a.severity==="Critical"?"var(--critical)":a.severity==="High"?"var(--high)":"var(--moderate)"}}>
+                <Icon name="alert" size={16}/> {a.severity.toUpperCase()} {a.severity==="Critical" && "ESCALATION"}
+              </div>
+              <StatusPill status={a.status==="Unresolved"?"Open":a.status}/>
+            </div>
+            <div className="text-sm text-slate-700 font-semibold mb-1">{a.caseId}{a.name? " · "+a.name : ""} · {a.district}</div>
+            <div className="text-sm text-slate-500 mb-2">Distress score: <span className="font-semibold text-slate-700">{a.score} / 100</span></div>
+            {a.assignedTo && <div className="text-xs text-slate-500 mb-2">Assigned to <span className="font-semibold text-slate-700">{a.assignedTo}</span></div>}
+            <ul className="text-xs text-slate-500 list-disc list-inside mb-3">{a.reason.map((r,i)=>(<li key={i}>{r}</li>))}</ul>
+            <div className="flex gap-2 flex-wrap">
+              {a.real ? (
+                <>
+                  <button disabled={busy===a.id || a.status==="Resolved"} onClick={()=>act(a.id,{status:"Resolved"},"Alert marked resolved.")} className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-700 text-white disabled:opacity-40">Mark Resolved</button>
+                  <button disabled={busy===a.id || a.status==="In Progress"} onClick={()=>act(a.id,{status:"In Progress"},"Alert marked in progress.")} className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-900 text-white disabled:opacity-40">In Progress</button>
+                  <button disabled={busy===a.id} onClick={()=>act(a.id,{assigned_to:"Dr. Meera Sharma"},"Counsellor assigned.")} className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-200 text-slate-600 disabled:opacity-40">Assign Counsellor</button>
+                </>
+              ) : (
+                <>
+                  <button onClick={()=>toast("Opening case detail…")} className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-900 text-white">View Case</button>
+                  <button onClick={()=>toast("Counsellor assigned.","success")} className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-200 text-slate-600">Assign Counsellor</button>
+                  <button onClick={()=>toast("District authority notified.","success")} className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-200 text-slate-600">Notify District Authority</button>
+                </>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ReportsPage(){
+  const toast = useToast();
+  const reports = ["Risk Trends","District Performance","State Performance","Intervention Outcomes","Distress Trends","Response Time","Case Category Distribution"];
+  return (
+    <div className="fade-in max-w-5xl">
+      <h1 className="text-2xl font-bold text-slate-900 mb-1">Reports</h1>
+      <p className="text-slate-500 mb-6">Generate and export reports for oversight and review.</p>
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {reports.map(r=>(
+          <div key={r} className="bg-white rounded-2xl border border-slate-200 p-5">
+            <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center mb-3"><Icon name="chart" size={16}/></div>
+            <div className="font-semibold text-slate-800 mb-1">{r}</div>
+            <div className="text-xs text-slate-400 mb-4">Last generated 2 days ago</div>
+            <div className="flex gap-2">
+              <button onClick={()=>toast(`Opening ${r} report…`)} className="flex-1 py-2 rounded-lg bg-slate-900 text-white text-xs font-semibold">View Report</button>
+              <button onClick={()=>toast(`${r} exported as PDF.`,"success")} className="p-2 rounded-lg border border-slate-200 text-slate-500"><Icon name="download" size={14}/></button>
+              <button onClick={()=>toast(`${r} exported as CSV.`,"success")} className="p-2 rounded-lg border border-slate-200 text-slate-500"><Icon name="file" size={14}/></button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function PeopleCasesPage({cases}){
+  return (
+    <div className="fade-in">
+      <h1 className="text-2xl font-bold text-slate-900 mb-1">People &amp; Cases</h1>
+      <p className="text-slate-500 mb-6">All monitored individuals across categories.</p>
+      <div className="flex flex-wrap gap-2 mb-5">
+        {CASE_CATEGORIES.map(c=>(<span key={c} className="px-3 py-1.5 rounded-full bg-white border border-slate-200 text-xs font-medium text-slate-600">{c}</span>))}
+      </div>
+      <div className="bg-white rounded-2xl border border-slate-200 p-5 overflow-x-auto">
+        <table className="w-full text-sm min-w-[760px]">
+          <thead><tr className="text-left text-xs text-slate-400 border-b border-slate-100">{["Case ID","Age group","Gender","District","Risk","Score","Concern","Status"].map(h=>(<th key={h} className="pb-2.5 font-medium pr-4">{h}</th>))}</tr></thead>
+          <tbody>
+            {cases.map(c=>(
+              <tr key={c.id} className="border-b border-slate-50">
+                <td className="py-2.5 pr-4 font-medium text-slate-700">{c.id}</td>
+                <td className="py-2.5 pr-4 text-slate-500">{c.age}</td>
+                <td className="py-2.5 pr-4 text-slate-500">{c.gender}</td>
+                <td className="py-2.5 pr-4 text-slate-500">{c.district}</td>
+                <td className="py-2.5 pr-4"><RiskBadge level={c.risk}/></td>
+                <td className="py-2.5 pr-4 text-slate-500">{c.score}</td>
+                <td className="py-2.5 pr-4 text-slate-500">{c.concern}</td>
+                <td className="py-2.5 pr-4"><StatusPill status={c.status}/></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function DistrictsListPage({states}){
+  const rows = [];
+  states.forEach(s=>s.districts.forEach(d=>rows.push({...d, state:s.name})));
+  rows.sort((a,b)=>b.avg-a.avg);
+  return (
+    <div className="fade-in max-w-5xl">
+      <h1 className="text-2xl font-bold text-slate-900 mb-1">Districts ranked by risk</h1>
+      <p className="text-slate-500 mb-6">All monitored districts, ordered by average distress score.</p>
+      <div className="bg-white rounded-2xl border border-slate-200 p-5 overflow-x-auto">
+        <table className="w-full text-sm min-w-[640px]">
+          <thead><tr className="text-left text-xs text-slate-400 border-b border-slate-100">{["District","State","Cases","High risk","Open alerts","Avg distress"].map(h=>(<th key={h} className="pb-2.5 font-medium pr-4">{h}</th>))}</tr></thead>
+          <tbody>
+            {rows.map(d=>(
+              <tr key={d.name} className="border-b border-slate-50">
+                <td className="py-2.5 pr-4 font-medium text-slate-700">{d.name}</td>
+                <td className="py-2.5 pr-4 text-slate-500">{d.state}</td>
+                <td className="py-2.5 pr-4 text-slate-500">{d.total}</td>
+                <td className="py-2.5 pr-4 text-slate-500">{d.high}</td>
+                <td className="py-2.5 pr-4 text-slate-500">{d.alerts}</td>
+                <td className="py-2.5 pr-4"><span className="font-semibold" style={{color:riskColorFor(d.avg)}}>{d.avg}</span></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function LiveDatabasePage(){
+  const [db,setDb] = useState(null);
+  const [selected,setSelected] = useState("cases");
+  const [loading,setLoading] = useState(false);
+  const toast = useToast();
+
+  async function load(){
+    setLoading(true);
+    try {
+      const data = await api("/api/db");
+      setDb(data);
+      if(!data.tables[selected]) setSelected(Object.keys(data.tables)[0] || "cases");
+    } catch {
+      toast("Could not load database view.","error");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(()=>{ load(); },[]);
+  const tables = db?.tables || {};
+  const names = Object.keys(tables);
+  const current = tables[selected] || {columns:[], rows:[], count:0};
+  const cell = value => {
+    const text = typeof value === "string" ? value : JSON.stringify(value);
+    return text && text.length > 120 ? text.slice(0,117)+"..." : (text ?? "");
+  };
+
+  return (
+    <div className="fade-in">
+      <div className="flex items-start justify-between gap-4 mb-5">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 mb-1">Live Database</h1>
+          <p className="text-slate-500 text-sm">Read-only MySQL view for demo verification. Latest 50 rows per table are shown.</p>
+        </div>
+        <button onClick={load} disabled={loading} className="px-3 py-2 rounded-lg bg-slate-900 text-white text-xs font-semibold disabled:opacity-50">{loading?"Refreshing...":"Refresh"}</button>
+      </div>
+      <div className="flex flex-wrap gap-2 mb-4">
+        {names.map(name=>(
+          <button key={name} onClick={()=>setSelected(name)} className={`px-3 py-2 rounded-lg text-xs font-semibold border ${selected===name?"bg-blue-50 border-blue-200 text-blue-800":"bg-white border-slate-200 text-slate-500"}`}>
+            {name} <span className="ml-1 text-slate-400">{tables[name].count}</span>
+          </button>
+        ))}
+      </div>
+      <div className="bg-white rounded-2xl border border-slate-200 p-5 overflow-x-auto">
+        <div className="font-semibold text-slate-800 mb-3">{selected} table</div>
+        <table className="w-full text-xs min-w-[760px]">
+          <thead>
+            <tr className="text-left text-slate-400 border-b border-slate-100">
+              {current.columns.map(col=><th key={col} className="pb-2.5 pr-4 font-medium">{col}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {current.rows.map((row,i)=>(
+              <tr key={row.id ?? row.token ?? i} className="border-b border-slate-50 align-top">
+                {current.columns.map(col=><td key={col} className="py-2.5 pr-4 text-slate-600 max-w-[260px]">{cell(row[col])}</td>)}
+              </tr>
+            ))}
+            {current.rows.length===0 && <tr><td className="py-8 text-center text-slate-400" colSpan={Math.max(current.columns.length,1)}>No rows yet.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function PlaceholderPage({title,body}){
+  return (
+    <div className="fade-in max-w-2xl">
+      <h1 className="text-2xl font-bold text-slate-900 mb-1">{title}</h1>
+      <p className="text-slate-500">{body}</p>
+    </div>
+  );
+}
+
+/* ============================== MOUNT ============================== */
+ReactDOM.createRoot(document.getElementById("root")).render(<AppRoot/>);
+</script>
+<script>
+  // Manually transform the JSX source with the classic runtime (React.createElement),
+  // since the automatic runtime emits an ES "import" that can't resolve without a bundler.
+  (function(){
+    var src = document.getElementById("app-source").textContent;
+    var compiled = Babel.transform(src, { presets: [["react", { runtime: "classic" }]] }).code;
+    var script = document.createElement("script");
+    script.text = compiled;
+    document.body.appendChild(script);
+  })();
+</script>
+</body>
+</html>

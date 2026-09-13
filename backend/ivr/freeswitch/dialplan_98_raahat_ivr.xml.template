@@ -1,0 +1,57 @@
+<include>
+  <!--
+    TEMPLATE — do not point FreeSWITCH at this file directly.
+
+    The @@APP_DIR@@ / @@IVR_KEY@@ / @@API_BASE@@ placeholders are filled in by ./install.sh,
+    which renders this into FreeSWITCH's dialplan directory. Keeping the checked-in copy
+    placeholder'd is what lets the repo work on someone else's machine: FreeSWITCH needs
+    absolute paths to the prompt files, and hard-coding one developer's home directory (or
+    the shared IVR key) into version control would break both portability and the secret.
+
+    Raahat phone-in IVR. Dial 7100 from any registered softphone (e.g. extension
+    1001) to reach it. (Not 4000 — FreeSWITCH's stock dialplan already claims 4000/vmain
+    for voicemail retrieval, which silently wins over ours if reused.) Voice prompts live
+    in the project at backend/ivr/prompts/*.wav
+    (regenerate with backend/ivr/prompts/generate.sh, which uses eSpeak NG).
+
+    Menu: 1 = guided wellbeing check-in (collects the same 5 answers as the web
+    check-in, via keypad digits), 9 = emergency (skips straight to a Critical alert,
+    same as the victim app's one-tap emergency button).
+
+    Every collected answer is POSTed straight to the FastAPI backend's /api/ivr/*
+    endpoints (see backend/main.py) using the system `curl`, so the exact same ML
+    scoring / safety-net / alerting / WebSocket-push pipeline runs as for a web
+    check-in or chat message — this dialplan carries no business logic of its own.
+  -->
+  <extension name="raahat_ivr_entry">
+    <condition field="destination_number" expression="^7100$">
+      <action application="answer"/>
+      <action application="sleep" data="300"/>
+      <action application="read" data="1 1 @@APP_DIR@@/backend/ivr/prompts/welcome.wav menu_choice 10000 #"/>
+      <action application="transfer" data="ivr_${menu_choice} XML default"/>
+      <action application="playback" data="@@APP_DIR@@/backend/ivr/prompts/invalid.wav"/>
+      <action application="hangup"/>
+    </condition>
+  </extension>
+
+  <extension name="raahat_ivr_checkin">
+    <condition field="destination_number" expression="^ivr_1$">
+      <action application="read" data="1 1 @@APP_DIR@@/backend/ivr/prompts/ask_mood.wav mood 10000 #"/>
+      <action application="read" data="1 1 @@APP_DIR@@/backend/ivr/prompts/ask_sleep.wav sleep 10000 #"/>
+      <action application="read" data="1 1 @@APP_DIR@@/backend/ivr/prompts/ask_safety.wav safety 10000 #"/>
+      <action application="read" data="1 1 @@APP_DIR@@/backend/ivr/prompts/ask_anxiety.wav anxiety 10000 #"/>
+      <action application="read" data="1 1 @@APP_DIR@@/backend/ivr/prompts/ask_pressure.wav case_pressure 10000 #"/>
+      <action application="system" data='curl -s --max-time 5 -X POST -H "Content-Type: application/json" -H "X-IVR-Key: @@IVR_KEY@@" -d "{\"mood\":${mood},\"sleep\":${sleep},\"safety\":${safety},\"anxiety\":${anxiety},\"case_pressure\":${case_pressure},\"case_id\":\"7934\"}" @@API_BASE@@/api/ivr/checkin -o /tmp/raahat_ivr_checkin_response.json'/>
+      <action application="playback" data="@@APP_DIR@@/backend/ivr/prompts/checkin_done.wav"/>
+      <action application="hangup"/>
+    </condition>
+  </extension>
+
+  <extension name="raahat_ivr_sos">
+    <condition field="destination_number" expression="^ivr_9$">
+      <action application="system" data='curl -s --max-time 5 -X POST -H "Content-Type: application/json" -H "X-IVR-Key: @@IVR_KEY@@" -d "{\"note\":\"Emergency reported via IVR phone keypad\"}" "@@API_BASE@@/api/ivr/sos?case_id=7934" -o /tmp/raahat_ivr_sos_response.json'/>
+      <action application="playback" data="@@APP_DIR@@/backend/ivr/prompts/sos_done.wav"/>
+      <action application="hangup"/>
+    </condition>
+  </extension>
+</include>

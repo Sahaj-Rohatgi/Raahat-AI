@@ -1,0 +1,4 @@
+.env
+raahat.db
+__pycache__/
+ml/artifacts/
