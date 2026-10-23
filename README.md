@@ -1,17 +1,54 @@
-# Raahat
+<p align="center">
+  <img src="static/img/raahat-logo.svg" alt="Raahat" width="120"/>
+</p>
 
-**Detect early. Support better.**
+<h1 align="center">Raahat</h1>
+<p align="center"><b>Detect early. Support better.</b></p>
 
-A demo platform for identifying psychological distress among vulnerable victims and witnesses of crimes — across investigation, trial, rehabilitation and protection — so that support reaches them *before* a crisis, rather than after one.
+<p align="center">
+  <img alt="Python" src="https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white"/>
+  <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-backend-009688?logo=fastapi&logoColor=white"/>
+  <img alt="React" src="https://img.shields.io/badge/React-frontend-61DAFB?logo=react&logoColor=black"/>
+  <img alt="MySQL" src="https://img.shields.io/badge/MySQL-8.0+-4479A1?logo=mysql&logoColor=white"/>
+  <img alt="Docker" src="https://img.shields.io/badge/Docker-compose-2496ED?logo=docker&logoColor=white"/>
+  <img alt="Data" src="https://img.shields.io/badge/data-synthetic-orange"/>
+</p>
 
-Built as a working prototype: a FastAPI backend with local ML risk scoring, a deterministic multilingual safety net, and a single-file React frontend with three role-based views.
+Victims and witnesses of crime carry heavy emotional pressure through investigation, trial and
+rehabilitation, and support usually arrives only *after* a crisis. **Raahat** is a platform that spots
+psychological distress early and routes the person to **human** support before it escalates.
+
+It is a working prototype: a FastAPI backend with local ML risk scoring, a deterministic multilingual
+(English / Hindi / Hinglish) safety net, and a single-file React frontend with three role-based views.
 
 > ⚠️ **This is a demo system built on synthetic data.** It is not a clinical, legal, or emergency-dispatch tool. Every High/Critical assessment requires human review, and the app never contacts anyone on a user's behalf.
+
+## Highlights
+
+| | |
+|---|---|
+| 🧠 **Two-layer risk detection** | Random-forest distress score and text model, plus a deterministic safety router that is never delegated to an LLM |
+| 🗣️ **Multilingual** | English, Hindi (Devanagari) and Hinglish, in chat, voice notes and scoring |
+| 👥 **Three role views** | Victim check-in and chat, counsellor caseload workbench, admin national → district oversight |
+| 🚨 **Live escalation** | High/Critical alerts pushed over WebSocket and optional webhook, with an unacknowledged-alert sweeper |
+| ⚖️ **Courtroom Rehearsal** | Practise giving evidence with live stress biofeedback |
+| 📞 **Phone-in IVR** | Keypad line for people without a smartphone (FreeSWITCH, or Twilio) |
+| 🎙️ **Voice notes** | Local speech-to-text (faster-whisper), so audio stays on the server |
+| 🔍 **Explainable** | Every score shows the factors behind it and a confidence figure; counsellors can override with a logged reason |
+| 🏭 **Production-shaped** | Docker, Alembic migrations, Redis, Prometheus metrics, CSP, audit log, retention and erasure tooling, CI |
+
+```
+ Victim app ─┐                          ┌─► ML scoring (RandomForest + TF-IDF)
+ Counsellor ─┼─► FastAPI ─► safety router ─┤
+ Admin       │      │                    └─► alert ─► WebSocket / webhook ─► counsellor
+ IVR / voice ┘      └─► MySQL (+ Redis for multi-worker)
+```
 
 ---
 
 ## Contents
 
+- [Highlights](#highlights)
 - [Quickstart](#quickstart)
 - [Demo logins](#demo-logins)
 - [What it does](#what-it-does)
@@ -52,6 +89,9 @@ python3 -m uvicorn backend.main:app --reload --port 8001
 ```
 
 Open **http://127.0.0.1:8001**
+
+For a phone-framed presentation view of the live app (handy for demos and screen recordings), open
+**http://127.0.0.1:8001/demo**.
 
 ### Preview on a phone
 
@@ -553,7 +593,7 @@ Start the server first, then in a second terminal (activate the venv there too):
 ```bash
 source .venv/bin/activate
 
-# Backend: auth, access control, validation, concurrency, persistence (44 checks, no extra deps)
+# Backend: auth, access control, validation, concurrency, persistence (62 checks, no extra deps)
 python3 tests/test_api.py
 
 # Production hardening: config refusal, session-token storage, CSP headers, participant

@@ -26,3 +26,6 @@ static/index.html
 
 # OS
 .DS_Store
+
+# Local working files
+Claude outputs/
