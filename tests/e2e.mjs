@@ -1,6 +1,6 @@
 import { chromium } from 'playwright';
 
-const BASE = 'http://127.0.0.1:8001';
+const BASE = process.env.RAAHAT_TEST_BASE || 'http://127.0.0.1:8001';
 const errors = [];
 const failures = [];
 
@@ -179,7 +179,7 @@ await page.click('button:has-text("Sign out")');
 await page.waitForTimeout(300);
 await page.click('text=Get Support');
 await page.waitForTimeout(200);
-await page.click('text=Enter Victim Demo');
+await page.click('text=Enter Participant Demo');
 await page.waitForTimeout(800);
 // The greeting is built from the signed-in session's own name now (it used to be the hardcoded
 // string "Good morning, Asha." regardless of who signed in), so assert on that instead.

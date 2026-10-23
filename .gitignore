@@ -16,9 +16,13 @@ __pycache__/
 .venv/
 venv/
 
-# Node (test tooling only)
+# Node build + test tooling
 node_modules/
-package-lock.json
+
+# Generated frontend build output (`npm run build` regenerates it from raahat.html)
+static/app.js
+static/app.*.js
+static/index.html
 
 # OS
 .DS_Store

@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Raahat - Simple Project Guide</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm; }
+  body { font-family: "Helvetica Neue", Arial, sans-serif; color: #1e2b25; font-size: 11.5pt; line-height: 1.5; }
+  h1 { font-size: 26pt; color: #2f5d50; margin: 0 0 4px; }
+  h2 { font-size: 16pt; color: #2f5d50; border-bottom: 2px solid #dde5de; padding-bottom: 4px; margin-top: 26px; page-break-after: avoid; }
+  h3 { font-size: 12.5pt; margin: 16px 0 4px; page-break-after: avoid; }
+  p { margin: 6px 0; }
+  .sub { color: #5a6a62; font-size: 12pt; margin-bottom: 14px; }
+  .box { background: #e3efe7; border-radius: 8px; padding: 10px 14px; margin: 10px 0; }
+  .warn { background: #fcf0e2; border-radius: 8px; padding: 10px 14px; margin: 10px 0; }
+  ul { margin: 4px 0 8px 18px; padding: 0; }
+  li { margin: 2px 0; }
+  table { border-collapse: collapse; width: 100%; margin: 8px 0; font-size: 10.5pt; }
+  th, td { border: 1px solid #dde5de; padding: 6px 8px; text-align: left; vertical-align: top; }
+  th { background: #eef4ef; }
+  .q { font-weight: bold; margin-top: 12px; page-break-after: avoid; }
+  .a { margin: 2px 0 6px 0; }
+  .tough { color: #a11616; font-weight: bold; }
+  .toc li { margin: 3px 0; }
+  .pb { page-break-before: always; }
+</style>
+</head>
+<body>
+
+<h1>Raahat</h1>
+<div class="sub">A simple guide to the project: what it is, how it works, and what judges may ask</div>
+
+<div class="box"><b>Raahat</b> means <i>relief</i> or <i>comfort</i>. It is an early help system for people who have been through an atrocity (like caste violence) and are now going through the police case, the court case, or rehabilitation. It checks on them regularly, notices when their stress is rising, and quickly connects them with a real counsellor.</div>
+
+<h2>Contents</h2>
+<ol class="toc">
+  <li>The problem in one minute</li>
+  <li>The solution in one minute</li>
+  <li>The three users</li>
+  <li>What the app can do (feature list)</li>
+  <li>How the app works inside (architecture)</li>
+  <li>The two brains: AI score and safety net</li>
+  <li>The AI model in simple words</li>
+  <li>Safety, privacy and consent</li>
+  <li>Phone, voice and language support</li>
+  <li>Tech stack (tools we used and why)</li>
+  <li>Testing and quality</li>
+  <li>Honest limitations</li>
+  <li>Next steps</li>
+  <li>Words you should know</li>
+  <li>Judge questions and simple answers (60+)</li>
+  <li>Quick 30-second pitch</li>
+</ol>
+
+<h2>1. The problem in one minute</h2>
+<p>In India, many people who suffer atrocities must face a long process: filing a complaint, police investigation, court hearings that get postponed again and again, and sometimes meeting the accused in court. This can take years.</p>
+<p>During this time, fear and stress come back again and again, for example after a threatening call, or before a hearing. Most people do not say this out loud. Support often starts only after a crisis has already happened.</p>
+<p>The NCRB (National Crime Records Bureau) report for 2023 recorded <b>57,789 crimes against Scheduled Castes</b> and <b>12,960 crimes against Scheduled Tribes</b>. That is roughly 194 cases every day. (Please check the official NCRB report before you quote these numbers.)</p>
+
+<h2>2. The solution in one minute</h2>
+<p>Raahat does three things:</p>
+<ul>
+  <li><b>Checks in gently:</b> short questions about mood, sleep, safety, anxiety and case pressure. The person can also chat or send a voice note.</li>
+  <li><b>Notices distress early:</b> the system gives a score from 0 to 100 and explains <i>why</i> it gave that score.</li>
+  <li><b>Brings a human in:</b> when the risk is high, a counsellor gets an alert right away. The counsellor decides what to do next.</li>
+</ul>
+<div class="warn"><b>Important:</b> Raahat does not replace counsellors, police, courts, or emergency services. It only helps the right human notice the right person at the right time.</div>
+
+<h2>3. The three users</h2>
+<table>
+  <tr><th>User</th><th>What they see</th><th>What they can do</th></tr>
+  <tr><td><b>Participant</b> (the survivor or complainant)</td><td>A private home page, mood check-ins, distress trend, support plan, medicines, appointments, court rehearsal, resources</td><td>Check in, chat with the assistant, send a voice note, press the SOS button, use the calm space, change consent, download or delete their data</td></tr>
+  <tr><td><b>Counsellor</b></td><td>A list of cases sorted by risk, live alerts, case details, distress trend, reasons behind the score</td><td>Add notes, set follow-ups, plan interventions, acknowledge alerts, override the AI score (with a reason that gets logged)</td></tr>
+  <tr><td><b>Administrator</b></td><td>District and state overview, all alerts, reports, people and cases, feedback analytics</td><td>Create cases, manage alerts, export reports, see overall trends</td></tr>
+</table>
+
+<h2>4. What the app can do (feature list)</h2>
+<h3>Public landing page</h3>
+<ul>
+  <li>Calm design with a friendly companion called <b>Saathi</b>. Saathi changes its colour and face when a visitor picks how they feel.</li>
+  <li>Helpline numbers at the very top: Tele-MANAS 14416, Atrocity helpline 14566, Emergency 112.</li>
+  <li>A <b>live demo</b> ("See how Raahat listens"): type a sentence and see the real AI and safety check work.</li>
+  <li>Full English and Hindi switch (saved in the browser).</li>
+  <li>A breathing circle to slow down your breath.</li>
+</ul>
+<h3>Participant (survivor) features</h3>
+<ul>
+  <li><b>Check-in:</b> a few questions about mood, sleep, safety, anxiety and pressure.</li>
+  <li><b>Chat assistant:</b> type or speak. Quick buttons like "I feel anxious" or "I need to talk". Thumbs up or down on each reply.</li>
+  <li><b>Voice note:</b> record a message; it is turned into text on our own server.</li>
+  <li><b>Emergency (SOS) button:</b> one tap alerts the care team at once.</li>
+  <li><b>Calm space:</b> 4-7-8 breathing exercise, a set of comforting words, and a bubble-popping game.</li>
+  <li><b>Court rehearsal:</b> practice answering court-style questions in a safe place. Optional pulse reading from the phone camera.</li>
+  <li><b>Support plan, medicines, appointments, resources:</b> simple personal pages.</li>
+  <li><b>Privacy settings:</b> see and change consent, export data, or request deletion.</li>
+</ul>
+<h3>Counsellor features</h3>
+<ul>
+  <li>Priority list of cases, with the highest risk at the top.</li>
+  <li>Live alerts that appear without refreshing the page.</li>
+  <li>Case page: distress trend, explanation of the score (which factors mattered most), notes, interventions, follow-ups.</li>
+  <li>Override the AI score with a reason. The change is saved in the audit log.</li>
+  <li>Download a plain text case report.</li>
+</ul>
+<h3>Administrator features</h3>
+<ul>
+  <li>Overview of districts and states with risk levels and alerts.</li>
+  <li>Alert management, reports, and a list of all people and cases.</li>
+</ul>
+<h3>Phone support</h3>
+<ul>
+  <li>Person without a smartphone can <b>call</b>. Press <b>1</b> for a check-in, or <b>9</b> for an emergency.</li>
+  <li>The phone check-in goes to the same AI and the same alerts as the website.</li>
+</ul>
+
+<h2>5. How the app works inside (architecture)</h2>
+<p>Think of Raahat as four parts working together:</p>
+<ol>
+  <li><b>Frontend (what you see):</b> a web page built with React. It runs in the browser.</li>
+  <li><b>Backend (the brain that receives everything):</b> a Python program called FastAPI. Every button click or message goes here first.</li>
+  <li><b>Database (the memory):</b> MySQL stores cases, check-ins, chat messages, alerts, notes and audit logs.</li>
+  <li><b>AI and safety services:</b> a machine learning model for the score, and a rule-based safety checker for emergencies.</li>
+</ol>
+<p>Extra parts: <b>Redis</b> (shared counters, so limits work across many servers), <b>WebSockets</b> (keep an open line so alerts arrive instantly), and <b>Twilio or FreeSWITCH</b> (phone calls).</p>
+<div class="box"><b>Simple flow example:</b> A participant types a message. The backend first runs the safety checker. Then the AI gives a score. The result is saved in the database. If the risk is high, an alert is created and pushed live to counsellors. The reply goes back to the participant.</div>
+
+<h2>6. The two brains: AI score and safety net</h2>
+<p>This is the most important design idea in Raahat.</p>
+<table>
+  <tr><th></th><th>AI model (the score)</th><th>Safety net (the rules)</th></tr>
+  <tr><td>What it does</td><td>Gives a score from 0 to 100 and explains the reasons</td><td>Looks for danger words like self-harm, violence, threats, abuse</td></tr>
+  <tr><td>How it works</td><td>Learned from example data</td><td>Fixed rules written by people</td></tr>
+  <tr><td>Can it be wrong?</td><td>Yes, sometimes</td><td>It only catches what the rules describe, but its behaviour is always the same and easy to test</td></tr>
+  <tr><td>Who has the final say in an emergency?</td><td colspan="1">No</td><td>Yes. If the safety net finds danger, the case becomes <b>Critical</b> (score 90) no matter what the AI says.</td></tr>
+</table>
+<p>Example: if someone types "I don't want to live anymore", the AI may say "I am not sure" about this sentence, but the safety net still marks it as Critical and shows crisis support at once.</p>
+<p>The safety net also understands "not". "I am not suicidal, just stressed" does <b>not</b> trigger an alarm. "I am not suicidal, but I want to die" <b>does</b>.</p>
+
+<h2>7. The AI model in simple words</h2>
+<ul>
+  <li><b>Text part:</b> a TF-IDF model reads the words of a message and guesses its risk level (Logistic Regression).</li>
+  <li><b>Score part:</b> a Random Forest (many small decision trees voting together) mixes the check-in answers, the text guess, missed check-ins and how active the person has been, and gives the score.</li>
+  <li><b>Escalation part:</b> a separate number shows how likely it is that this case needs urgent attention.</li>
+  <li><b>Trend:</b> a short forecast on the counsellor page shows where the score may go next, with uncertainty shown.</li>
+  <li><b>Training data:</b> about 1,800 <b>synthetic</b> (made-up but realistic) cases in English, Hindi and Hinglish. No real survivor data was used.</li>
+  <li><b>Explainable:</b> every score shows its top reasons, for example "poor sleep" or "low safety".</li>
+</ul>
+<div class="warn"><b>Be honest about accuracy:</b> the training numbers look very high (for example 100% on text bands). This is because the data is synthetic and simple. It does <b>not</b> prove real-world accuracy. Real accuracy needs real, consented data and clinical checking.</div>
+
+<h2>8. Safety, privacy and consent</h2>
+<ul>
+  <li><b>Login by role:</b> a participant only sees their own case. The server checks this on every request, not just the website.</li>
+  <li><b>Passwords:</b> stored as salted scrypt hashes. Nobody, not even admins, can read them.</li>
+  <li><b>Audit log:</b> every staff action (view, note, override, alert change) is recorded with who did it and when.</li>
+  <li><b>Consent:</b> monitoring starts only when the participant agrees, and they can stop it at any time.</li>
+  <li><b>Data rights:</b> a participant can download their data or ask for deletion. Deletion is reviewed by staff for safety, so it is not instant.</li>
+  <li><b>Voice notes:</b> transcribed on Raahat's own server with Whisper. The audio is not saved. Gemini is used only if the local system is not available, and the participant is told this before recording.</li>
+  <li><b>Calm and gentle:</b> the app does not play sound on its own. The read-aloud option is off by default, so a reply is never spoken out loud by surprise.</li>
+  <li><b>Security basics:</b> rate limits on login and chat, a strict content security policy, and single-use tickets for live alerts.</li>
+</ul>
+
+<h2>9. Phone, voice and language support</h2>
+<ul>
+  <li><b>Languages:</b> English, Hindi and Hinglish (Hindi written in English letters) in the safety rules, the chat and the voice. The landing and login pages fully switch to Hindi.</li>
+  <li><b>Voice in:</b> voice notes become text, then go through the same safety check as typed text.</li>
+  <li><b>Voice out:</b> replies can be read aloud using the browser's voices. You can choose a female or male voice.</li>
+  <li><b>Phone calls:</b> a Twilio number or a self-hosted FreeSWITCH line. Keypad answers go to the same AI and alerts.</li>
+</ul>
+
+<h2>10. Tech stack (tools we used and why)</h2>
+<table>
+  <tr><th>Part</th><th>Tool</th><th>Simple reason</th></tr>
+  <tr><td>Web pages</td><td>React + Tailwind CSS</td><td>Popular, fast and makes nice-looking screens</td></tr>
+  <tr><td>Build</td><td>esbuild</td><td>Prepares the web page so it loads fast on a slow phone</td></tr>
+  <tr><td>Backend</td><td>Python + FastAPI</td><td>Quick to write, checks input automatically, easy to read</td></tr>
+  <tr><td>Database</td><td>MySQL + Alembic</td><td>Good for connected data (cases, notes, alerts); Alembic handles changes</td></tr>
+  <tr><td>Shared memory</td><td>Redis</td><td>Keeps rate limits and alerts the same across many servers</td></tr>
+  <tr><td>AI model</td><td>scikit-learn</td><td>Simple, explainable models that run on ordinary computers</td></tr>
+  <tr><td>Speech to text</td><td>faster-whisper</td><td>Runs on our own server, no need to send audio outside</td></tr>
+  <tr><td>Chat replies (optional)</td><td>Google Gemini</td><td>Writes gentle, natural replies for ordinary messages. Never decides emergencies.</td></tr>
+  <tr><td>Live alerts</td><td>WebSockets</td><td>Pushes alerts instantly without refreshing</td></tr>
+  <tr><td>Phone</td><td>Twilio / FreeSWITCH</td><td>Lets people without smartphones call in</td></tr>
+  <tr><td>Deployment</td><td>Docker + Gunicorn</td><td>Runs the same way on any server</td></tr>
+  <tr><td>Tests</td><td>Python tests + Playwright (browser)</td><td>Checks the app really works, not just looks right</td></tr>
+</table>
+
+<h2>11. Testing and quality</h2>
+<ul>
+  <li><b>API tests (62):</b> login, access rules, input checks, the demo endpoint, concurrency (many cases created at once).</li>
+  <li><b>Production tests (37):</b> security headers, configuration, rate limits and deployment checks.</li>
+  <li><b>Chatbot tests (9):</b> safety cases in English and Hindi, negation handling.</li>
+  <li><b>Voice tests (4):</b> the fallback works, and audio is handled safely.</li>
+  <li><b>Browser tests (22):</b> log in as each role and walk through real flows.</li>
+</ul>
+<p>Bugs we found and fixed include: two cases created at the same second getting the same ID, a phone scale that was backwards, and Hindi words not being detected because of how word boundaries worked.</p>
+
+<h2>12. Honest limitations</h2>
+<ul>
+  <li>The AI is trained on <b>synthetic data</b>, so its real accuracy is not yet proven.</li>
+  <li>The district and state numbers on the admin map are <b>sample data</b> for the demo.</li>
+  <li>There is no self sign-up or password reset yet. Only demo accounts.</li>
+  <li>Three languages only (English, Hindi, Hinglish). India has many more.</li>
+  <li>The voice-tone signals (pauses, volume) are <b>experimental</b> and do not change the score.</li>
+  <li>The pulse reading from the camera is a <b>wellness estimate</b>, not a medical reading.</li>
+  <li>Raahat is a decision-support tool. It is not a certified clinical or emergency service.</li>
+  <li>The calm space has Bhagavad Gita quotes. Survivors from other traditions may not find these comforting; this should be made neutral or let people choose.</li>
+</ul>
+
+<h2>13. Next steps</h2>
+<ul>
+  <li>Test with real partner NGOs and a small pilot district, with consent and ethics approval.</li>
+  <li>Get real, anonymised data and validate the model with clinical experts.</li>
+  <li>Add more Indian languages (Marathi, Tamil, Bengali and others).</li>
+  <li>Add a quick-exit button and a disguised app icon, for people who may be watched by the accused.</li>
+  <li>Connect the admin map to real case data.</li>
+  <li>Add proper account creation and password reset, with verification.</li>
+  <li>Security audit and privacy review before any real use.</li>
+</ul>
+
+<h2 class="pb">14. Words you should know</h2>
+<table>
+  <tr><th>Word</th><th>Simple meaning</th></tr>
+  <tr><td>Atrocity</td><td>A serious crime against a person, here especially crimes against SC and ST people</td></tr>
+  <tr><td>Survivor / complainant</td><td>The person who was harmed or who filed the complaint</td></tr>
+  <tr><td>Distress score</td><td>A number from 0 to 100 showing how stressed a person seems</td></tr>
+  <tr><td>Risk band</td><td>A label for the score: Stable, Low, Moderate, High, Critical</td></tr>
+  <tr><td>Safety net</td><td>Fixed rules that catch emergencies, separate from the AI</td></tr>
+  <tr><td>Machine learning</td><td>A computer program that learns patterns from example data</td></tr>
+  <tr><td>Synthetic data</td><td>Made-up example data that looks realistic, used so no real person's data is needed</td></tr>
+  <tr><td>Override</td><td>When a counsellor changes the AI score, with a reason</td></tr>
+  <tr><td>Audit log</td><td>A record of who did what and when</td></tr>
+  <tr><td>Consent</td><td>A person's clear permission for monitoring</td></tr>
+  <tr><td>API</td><td>A set of doors (endpoints) the frontend uses to talk to the backend</td></tr>
+  <tr><td>WebSocket</td><td>An open line that lets the server push messages instantly</td></tr>
+  <tr><td>IVR</td><td>Interactive Voice Response: the keypad menu on a phone call</td></tr>
+  <tr><td>Hinglish</td><td>Hindi written in English letters, for example "mujhe dar lag raha hai"</td></tr>
+  <tr><td>Tele-MANAS</td><td>Government mental health helpline, 14416</td></tr>
+</table>
+
+<h2 class="pb">15. Judge questions and simple answers</h2>
+<p>Answer in two or three short sentences. If the judge wants more, they will ask. Questions marked <span class="tough">[tough]</span> need extra care.</p>
+
+<h3>A. About the problem</h3>
+<div class="q">Q1. What problem are you solving?</div>
+<div class="a">Survivors of atrocities carry fear and stress through a long case. Support usually comes only after a crisis. Raahat checks in regularly and brings a counsellor in early.</div>
+<div class="q">Q2. Who is your user?</div>
+<div class="a">The survivor or complainant is the main user. Counsellors and district officers act on the alerts. Administrators see the overall picture.</div>
+<div class="q">Q3. Who would use this in real life?</div>
+<div class="a">State social welfare departments, district legal services, NGOs that support survivors, and victim support units in the police or courts.</div>
+<div class="q">Q4. Why not just have counsellors call people regularly?</div>
+<div class="a">They can, but one counsellor has too many cases. Raahat does the noticing in between and shows who needs a call today.</div>
+<div class="q">Q5. How is this different from a helpline like Tele-MANAS?</div>
+<div class="a">A helpline waits for the person to call. Raahat reaches out, follows the case over time, and links to the person's own counsellor. We show the helpline numbers too, we do not replace them.</div>
+<div class="q">Q6. Is this just a survey form?</div>
+<div class="a">No. A form only collects answers. Raahat understands them with a model, gives a live score, explains why, and alerts a human when something looks dangerous.</div>
+<div class="q">Q7. How would you measure success?</div>
+<div class="a">Time from a warning sign to first human contact, number of crises flagged early, missed check-ins followed up, and survivor feedback on trust and comfort.</div>
+
+<h3>B. About the AI</h3>
+<div class="q">Q8. How does the AI decide that someone is distressed?</div>
+<div class="a">It looks at check-in answers (mood, sleep, safety, anxiety, pressure) and at what the person writes or says. It combines them into one score from 0 to 100.</div>
+<div class="q">Q9. Which AI model did you use? Is it deep learning?</div>
+<div class="a">No deep learning. We use simple, explainable models: TF-IDF with Logistic Regression for text, and a Random Forest for the score. They are easy to explain and run on normal computers.</div>
+<div class="q">Q10. What is a Random Forest?</div>
+<div class="a">Many small decision trees, each giving a vote, and the average is used. It is good at mixing different kinds of information.</div>
+<div class="q">Q11. What is TF-IDF?</div>
+<div class="a">A way to turn words into numbers. Words that are important in a message get a higher number, so the model can learn from them.</div>
+<div class="q">Q12. What data did you train on?</div>
+<div class="a">About 1,800 synthetic cases in English, Hindi and Hinglish. We did not use real survivor data, for privacy and ethics.</div>
+<div class="q">Q13. [tough] Your accuracy is 100%. Isn't that suspicious?</div>
+<div class="a">Yes, we agree it looks too good. It is tested on our own made-up sentences, so it only shows the model learned our patterns. It is not a real accuracy claim. Real accuracy needs real consented data.</div>
+<div class="q">Q14. How accurate is the score in real life?</div>
+<div class="a">We do not know yet, and we will not claim it. Validation with real, consented data and clinical experts is the next step.</div>
+<div class="q">Q15. Why not use ChatGPT or an LLM for everything?</div>
+<div class="a">LLMs can be unpredictable, and in a safety case that is risky. We use an LLM only for ordinary, friendly chat replies. Emergencies are decided by fixed rules.</div>
+<div class="q">Q16. Is the AI a black box?</div>
+<div class="a">No. Every score shows its top reasons, such as poor sleep or low safety, and how much each reason mattered.</div>
+<div class="q">Q17. What if the AI misses someone in danger?</div>
+<div class="a">The safety net checks every message separately and marks clear emergencies as Critical. Also, a counsellor always sees the case and can override the score. The AI supports the human, it does not replace one.</div>
+<div class="q">Q18. What does "Unsure" mean on the demo?</div>
+<div class="a">It means the text model could not read the sentence well. The safety net still works, so an emergency is still caught.</div>
+<div class="q">Q19. Why does a normal sentence give a score around 51 in the demo?</div>
+<div class="a">The score is built mostly from check-in answers and history. One sentence alone lands in the middle. In the real app, a person's history changes the score a lot.</div>
+<div class="q">Q20. Can you predict distress before it happens?</div>
+<div class="a">We show a short trend forecast for each case, with its uncertainty. It is a reminder to look, not a prediction of the future.</div>
+<div class="q">Q21. [tough] Is the AI biased against any group?</div>
+<div class="a">We cannot measure this honestly with synthetic data. In a pilot, we would check error rates by language, gender and region, and keep a human reviewing every high-risk case.</div>
+<div class="q">Q22. How does the model handle Hindi and Hinglish?</div>
+<div class="a">The training sentences and safety words were written in all three. We also fixed a technical problem: normal word splitting breaks on Hindi vowel signs, so we wrote our own rule.</div>
+<div class="q">Q23. What is the escalation probability?</div>
+<div class="a">A separate number showing how likely it is that the case needs urgent attention. High values raise an alert.</div>
+
+<h3>C. About safety</h3>
+<div class="q">Q24. What happens the moment someone writes an emergency?</div>
+<div class="a">The case becomes Critical. The person sees emergency guidance and helpline numbers. Counsellors get a live alert. If nobody acknowledges it in five minutes, it is sent again.</div>
+<div class="q">Q25. Does Raahat call the police or an ambulance?</div>
+<div class="a">No. It cannot dispatch anyone. It shows 112 and the helplines, and alerts the human care team, who decide what to do.</div>
+<div class="q">Q26. How do you avoid false alarms, like "I am not suicidal"?</div>
+<div class="a">The safety net checks negation words in the same sentence part. "Not suicidal, just stressed" does not trigger. "Not suicidal, but I want to die" does.</div>
+<div class="q">Q27. What is the SOS button?</div>
+<div class="a">One tap marks the case Critical and alerts the care team immediately. No AI is involved. On a phone call, pressing 9 does the same.</div>
+<div class="q">Q28. Can the chatbot say something harmful?</div>
+<div class="a">Urgent messages never go to the LLM. The replies from the LLM are checked for false promises, such as "I have called someone" or "this is confidential". If the LLM fails, the app uses a safe built-in reply.</div>
+<div class="q">Q29. What if the internet or Gemini is down?</div>
+<div class="a">Safety checks and scores run on our own server, so they still work. The chat uses built-in safe replies instead of waiting.</div>
+<div class="q">Q30. [tough] What if the accused sees the phone?</div>
+<div class="a">Read-aloud is off by default, so nothing plays out loud by surprise. We agree a quick-exit button and a disguised app icon are needed next, and we list this as a next step.</div>
+
+<h3>D. About privacy and ethics</h3>
+<div class="q">Q31. How do you protect this sensitive data?</div>
+<div class="a">Role-based login checked on the server, scrambled passwords, an audit log for every staff action, strict security headers, rate limits, and the option to automatically delete old data.</div>
+<div class="q">Q32. Can a participant see another participant's case?</div>
+<div class="a">No. The server checks who is logged in on every request. Automated tests check this.</div>
+<div class="q">Q33. Is the survivor being watched without knowing?</div>
+<div class="a">No. Monitoring needs consent, and consent can be withdrawn at any time in the settings.</div>
+<div class="q">Q34. Where does a voice note go?</div>
+<div class="a">It is transcribed on our own server. Only if that fails does it go to Gemini, and the person is told this before recording. The audio is not stored; only the text is saved in the chat.</div>
+<div class="q">Q35. Can counsellors see everything?</div>
+<div class="a">They see the cases assigned to them and what they need for care. Every view, note and change is logged.</div>
+<div class="q">Q36. What happens when a participant asks for deletion?</div>
+<div class="a">The request is logged and a staff member reviews it. This prevents accidental deletion of important safety records. It is not instant yet.</div>
+<div class="q">Q37. [tough] Why is the calm space built on Bhagavad Gita quotes?</div>
+<div class="a">Many survivors are Buddhist, Ambedkarite, Christian, Muslim, or not religious. A good answer: "It is one of several tabs. We plan to let people choose traditions, including Ambedkar and Buddhist texts, or plain comforting words." Ideally, make it neutral before the finals.</div>
+<div class="q">Q38. Is the pulse reading from the camera medical?</div>
+<div class="a">No. It is a wellness estimate on the device. No image leaves the phone. It is not a diagnosis.</div>
+
+<h3>E. About features and use</h3>
+<div class="q">Q39. What does a participant see when they log in?</div>
+<div class="a">A home page with mood check-ins, the distress trend, a support plan, medicines, appointments, resources, the chat, and the SOS button.</div>
+<div class="q">Q40. What does a counsellor see?</div>
+<div class="a">A list of cases with the highest risk at the top, live alerts, and a case page with the score, the reasons, notes, and the option to override the score.</div>
+<div class="q">Q41. What is the court rehearsal?</div>
+<div class="a">A safe place to practise answering court-style questions, aloud or typed. Typed answers are checked for safety. If a participant reveals danger during practice, the team is alerted.</div>
+<div class="q">Q42. What is the Calm space?</div>
+<div class="a">A short space with a 4-7-8 breathing timer, comforting words, and a bubble game that helps release tension.</div>
+<div class="q">Q43. Can it work without a smartphone?</div>
+<div class="a">Yes. The person can call a number, press 1 for a check-in or 9 for an emergency. The call goes into the same system.</div>
+<div class="q">Q44. How does the phone system know whose case it is?</div>
+<div class="a">The caller's number is matched to their registered case. Unknown numbers are refused. In the demo, one test line is linked to one demo case.</div>
+<div class="q">Q45. Which languages do you support?</div>
+<div class="a">English, Hindi and Hinglish, for safety checks, chat and voice. The landing and login pages switch fully to Hindi. More languages are a next step.</div>
+<div class="q">Q46. What about people who cannot read well?</div>
+<div class="a">They can use voice notes, listen to replies if they turn read-aloud on, and use the phone line. Moods are shown with faces, not only words.</div>
+<div class="q">Q47. Why is there a companion called Saathi?</div>
+<div class="a">It makes the first screen feel warm, not like a government form. It reacts to how the visitor feels, which makes the start of the journey calmer.</div>
+
+<h3>F. About technology</h3>
+<div class="q">Q48. What is your tech stack?</div>
+<div class="a">React and Tailwind for the screens, Python with FastAPI for the backend, MySQL for the database, Redis for shared limits, scikit-learn for the models, Whisper for speech, WebSockets for live alerts, and Docker for deployment.</div>
+<div class="q">Q49. Why FastAPI?</div>
+<div class="a">It is fast, easy to read, and checks every input automatically. That blocks bad data before it reaches our logic.</div>
+<div class="q">Q50. Why MySQL and not MongoDB or Firebase?</div>
+<div class="a">Cases, check-ins, alerts and notes are connected to each other. A relational database like MySQL handles that well and is free and widely trusted.</div>
+<div class="q">Q51. Does the frontend talk directly to the database?</div>
+<div class="a">No. Everything goes through the backend API. Only the backend touches the database.</div>
+<div class="q">Q52. How do live alerts work?</div>
+<div class="a">Through a WebSocket: an open line from the server to the counsellor's screen. New alerts appear instantly without refreshing.</div>
+<div class="q">Q53. Does the app work offline?</div>
+<div class="a">The web page loads without internet once it is open, because the libraries are bundled. Saving and reading data still needs the server.</div>
+<div class="q">Q54. Can it scale to a whole state?</div>
+<div class="a">Yes in design. The app can run on several servers behind a load balancer. Redis keeps limits and alerts consistent. The models are small and run on ordinary CPUs.</div>
+<div class="q">Q55. Is the chat reply slow when Gemini is slow?</div>
+<div class="a">No. A circuit breaker stops calling Gemini after repeated failures, so the app switches to the built-in reply quickly.</div>
+<div class="q">Q56. How do you know it really works?</div>
+<div class="a">We have more than 130 automated tests, including 22 browser tests that log in as each role and complete real flows.</div>
+<div class="q">Q57. What bug was hardest to fix?</div>
+<div class="a">Hindi word detection. Standard word boundaries miss Hindi vowel signs, so Hindi danger phrases were skipped. We replaced them with a rule based on spaces and punctuation, and added Hindi tests.</div>
+<div class="q">Q58. What did it cost?</div>
+<div class="a">Mostly open-source tools. Running costs are a small server and the phone line. Gemini is optional. Running speech and models on our own server keeps costs low and data inside the country.</div>
+
+<h3>G. About limits and the future</h3>
+<div class="q">Q59. [tough] What are the limitations?</div>
+<div class="a">Synthetic training data, sample admin numbers, demo accounts only, three languages, experimental voice signals, and it is decision support, not a certified clinical service. We say these openly.</div>
+<div class="q">Q60. Is it ready to launch tomorrow?</div>
+<div class="a">Not with real survivors yet. It needs consented data, clinical validation, a security audit and counsellor training first. The structure is ready for that.</div>
+<div class="q">Q61. What would you build in three more months?</div>
+<div class="a">A pilot with one NGO in one district, real data and model validation, more languages, a quick-exit button, and real case data on the admin map.</div>
+<div class="q">Q62. What is the biggest strength of your idea?</div>
+<div class="a">A fixed safety net that does not depend on AI, plus an AI score that always explains itself and can be overridden by a human. Also, it reaches people by web, voice and phone.</div>
+<div class="q">Q63. What is the one thing you want judges to remember?</div>
+<div class="a">Early help for survivors is possible, but only if a human is alerted in time. Raahat is built to make sure that happens.</div>
+
+<h2 class="pb">16. Quick 30-second pitch</h2>
+<div class="box">
+"Namaste. Every day in India, around 194 atrocity cases are recorded against SC and ST people. Survivors carry fear through years of court cases, usually in silence. Raahat checks in on them gently, notices distress early, and brings a real counsellor in before a crisis. It uses an explainable AI score, a separate safety net that catches emergencies in English, Hindi and Hinglish, and works by web, voice and phone. A person always makes the final decision. We are honest that our data is synthetic and that a pilot needs real validation. Raahat helps the right person notice the right case at the right time. Thank you."
+</div>
+
+<h2>Before you present: checklist</h2>
+<ul>
+  <li>Confirm NCRB numbers from the official report.</li>
+  <li>Decide on the Gita tab: keep, make neutral, or let people choose.</li>
+  <li>Run the production build and practise the demo twice.</li>
+  <li>Send one voice note on the demo laptop so the Whisper model is already downloaded.</li>
+  <li>Keep this guide and the pitch book with you, but answer in your own words.</li>
+</ul>
+
+</body>
+</html>

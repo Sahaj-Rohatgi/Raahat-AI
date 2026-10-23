@@ -6,13 +6,61 @@ support replies when GEMINI_API_KEY is present in the server environment.
 from __future__ import annotations
 
 import json
-import os
+import logging
 import re
+import threading
+import time
 import unicodedata
 from base64 import b64encode
 from urllib import error, request
 
+from .. import config, observability
 from ..ml.semantic import classify as semantic_classify
+
+log = logging.getLogger(__name__)
+
+
+class _CircuitBreaker:
+    """Stop calling a provider that is already failing.
+
+    Without this, an outage at the LLM provider turns every chat turn into a full timeout
+    (10s for replies, 20s for transcription) before falling back to the local reply — so a
+    provider being down becomes the app being unusably slow, for everyone, at exactly the
+    moment someone needs a fast answer. After `threshold` consecutive failures the breaker
+    opens and calls short-circuit to the local path immediately; one trial call is allowed
+    through after `cooldown` to detect recovery.
+    """
+
+    def __init__(self, name: str, threshold: int = 4, cooldown: float = 30.0):
+        self.name, self.threshold, self.cooldown = name, threshold, cooldown
+        self._failures = 0
+        self._opened_at = 0.0
+        self._lock = threading.Lock()
+
+    def allows(self) -> bool:
+        with self._lock:
+            if self._failures < self.threshold:
+                return True
+            if time.monotonic() - self._opened_at >= self.cooldown:
+                return True  # trial call; a failure re-opens the breaker for another cooldown
+            return False
+
+    def record_success(self) -> None:
+        with self._lock:
+            self._failures = 0
+
+    def record_failure(self) -> None:
+        with self._lock:
+            self._failures += 1
+            if self._failures == self.threshold:
+                self._opened_at = time.monotonic()
+                log.error("LLM circuit breaker opened", extra={"provider": self.name, "cooldown_s": self.cooldown})
+            elif self._failures > self.threshold:
+                self._opened_at = time.monotonic()
+
+
+_reply_breaker = _CircuitBreaker("gemini-reply")
+_transcribe_breaker = _CircuitBreaker("gemini-transcribe")
 
 
 def _has(pattern: str, text: str) -> bool:
@@ -211,10 +259,14 @@ def _local_reply(routed: dict, response_language: str) -> str:
 
 
 def _gemini_reply(message: str, history: list[dict], routed: dict, assessment: dict | None) -> str | None:
-    key = os.getenv("GEMINI_API_KEY", "").strip()
-    model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash").removeprefix("models/")
+    key = config.GEMINI_API_KEY.strip()
+    model = config.GEMINI_MODEL.removeprefix("models/")
     if not key or routed["urgent"] or not re.fullmatch(r"[A-Za-z0-9._-]+", model):
         return None
+    if not _reply_breaker.allows():
+        observability.incr("raahat_llm_calls_total", purpose="reply", outcome="circuit_open")
+        return None
+    started = time.monotonic()
     contents = [
         {"role": "model" if turn.get("role") == "assistant" else "user", "parts": [{"text": str(turn.get("content", ""))}]}
         for turn in history[-12:]
@@ -225,7 +277,10 @@ def _gemini_reply(message: str, history: list[dict], routed: dict, assessment: d
     payload = {
         "systemInstruction": {"parts": [{"text": SYSTEM + "\nContext: " + context}]},
         "contents": contents,
-        "generationConfig": {"temperature": 0.35, "maxOutputTokens": 220},
+        # Gemini 2.5 "thinking" tokens count against maxOutputTokens: with a 220 budget the
+        # thoughts used most of it and replies were cut off mid-word ("I'm sorry to hear you'").
+        # A 2-4 sentence reply needs no reasoning pass, so thinking is turned off.
+        "generationConfig": {"temperature": 0.35, "maxOutputTokens": 400, "thinkingConfig": {"thinkingBudget": 0}},
     }
     try:
         req = request.Request(
@@ -236,24 +291,41 @@ def _gemini_reply(message: str, history: list[dict], routed: dict, assessment: d
         )
         with request.urlopen(req, timeout=10) as response:
             data = json.loads(response.read(500_000))
+        candidate = data["candidates"][0]
         reply_text = " ".join(
             part["text"]
-            for part in data["candidates"][0]["content"]["parts"]
+            for part in candidate["content"]["parts"]
             if isinstance(part, dict) and "text" in part and not part.get("thought")
         ).strip()
+        _reply_breaker.record_success()
+        if candidate.get("finishReason") == "MAX_TOKENS":
+            # Never show a half sentence to someone in distress; use the complete local reply.
+            reply_text = ""
+        observability.observe("raahat_llm_seconds", time.monotonic() - started, purpose="reply")
         if reply_text and len(reply_text) <= 1200 and not _has(FALSE_CLAIM, _normalize(reply_text)):
+            observability.incr("raahat_llm_calls_total", purpose="reply", outcome="ok")
             return reply_text
-    except (OSError, error.URLError, KeyError, IndexError, TypeError, ValueError):
+        # A well-formed response that failed the safety filter is not a provider failure,
+        # so it must not count toward the breaker — it just falls back to the local reply.
+        observability.incr("raahat_llm_calls_total", purpose="reply", outcome="rejected")
+    except (OSError, error.URLError, KeyError, IndexError, TypeError, ValueError) as failure:
+        _reply_breaker.record_failure()
+        observability.incr("raahat_llm_calls_total", purpose="reply", outcome="error")
+        log.warning("LLM reply failed; using local reply", extra={"error": type(failure).__name__})
         return None
     return None
 
 
 def transcribe_audio(audio: bytes, mime_type: str, history: list[dict] | None = None) -> str | None:
     """Return a transcript only; urgency remains the local text router's job."""
-    key = os.getenv("GEMINI_API_KEY", "").strip()
-    model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash").removeprefix("models/")
+    key = config.GEMINI_API_KEY.strip()
+    model = config.GEMINI_MODEL.removeprefix("models/")
     if not key or mime_type not in AUDIO_TYPES or not re.fullmatch(r"[A-Za-z0-9._-]+", model):
         return None
+    if not _transcribe_breaker.allows():
+        observability.incr("raahat_llm_calls_total", purpose="transcribe", outcome="circuit_open")
+        return None
+    started = time.monotonic()
     contents = [
         {"role": "model" if turn.get("role") == "assistant" else "user", "parts": [{"text": str(turn.get("content", ""))}]}
         for turn in (history or [])[-12:]
@@ -274,8 +346,14 @@ def transcribe_audio(audio: bytes, mime_type: str, history: list[dict] | None = 
             data = json.loads(response.read(500_000))
         transcript = " ".join(part["text"] for part in data["candidates"][0]["content"]["parts"]
                                 if isinstance(part, dict) and "text" in part and not part.get("thought")).strip()
+        _transcribe_breaker.record_success()
+        observability.observe("raahat_llm_seconds", time.monotonic() - started, purpose="transcribe")
+        observability.incr("raahat_llm_calls_total", purpose="transcribe", outcome="ok" if transcript else "empty")
         return transcript[:4000] or None
-    except (OSError, error.URLError, KeyError, IndexError, TypeError, ValueError):
+    except (OSError, error.URLError, KeyError, IndexError, TypeError, ValueError) as failure:
+        _transcribe_breaker.record_failure()
+        observability.incr("raahat_llm_calls_total", purpose="transcribe", outcome="error")
+        log.warning("voice transcription failed", extra={"error": type(failure).__name__})
         return None
 
 

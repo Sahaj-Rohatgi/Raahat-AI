@@ -1,5 +1,14 @@
 {
-  "dependencies": {
+  "name": "raahat",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "watch": "node build.mjs --watch",
+    "test:e2e": "node tests/e2e.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0",
     "playwright": "^1.63.0"
   }
 }

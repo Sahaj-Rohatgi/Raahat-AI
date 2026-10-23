@@ -13,12 +13,17 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
+import logging
 import os
 from xml.sax.saxutils import escape, quoteattr
 
+from .. import config
+
+log = logging.getLogger(__name__)
+
 # Polly.Aditi is Twilio's Indian-English voice. Any Twilio voice name works here; the
 # plain default is used if this is set to an empty string.
-VOICE = os.getenv("TWILIO_VOICE", "Polly.Aditi")
+VOICE = config.TWILIO_VOICE
 LANGUAGE = os.getenv("TWILIO_VOICE_LANGUAGE", "en-IN")
 
 MENU_PROMPT = "Welcome to Raahat. For a wellbeing check in, press 1. For emergency help, press 9."
@@ -49,12 +54,16 @@ def validate_signature(signature: str, url: str, params: dict[str, str]) -> bool
     """Twilio signs every webhook: base64 HMAC-SHA1 of the full public URL plus each POST
     parameter (sorted by name, key and value concatenated), keyed by the account auth token.
 
-    With no TWILIO_AUTH_TOKEN configured there is nothing to verify against, so this returns
-    True — fine for local curl testing, but set the token before pointing a real number here.
+    Fails CLOSED when no token is configured. Returning True in that case (which this used
+    to do, for local curl convenience) means an unauthenticated public endpoint that writes
+    check-ins and fires Critical escalations into real cases — anyone who finds the URL can
+    page the on-call team. Local testing sets TWILIO_AUTH_TOKEN to any value and signs its
+    own requests; the test suite does exactly that.
     """
-    token = os.getenv("TWILIO_AUTH_TOKEN", "").strip()
+    token = config.TWILIO_AUTH_TOKEN.strip()
     if not token:
-        return True
+        log.error("Twilio webhook rejected: TWILIO_AUTH_TOKEN is not configured")
+        return False
     payload = url + "".join(name + params[name] for name in sorted(params))
     digest = hmac.new(token.encode(), payload.encode("utf-8"), hashlib.sha1).digest()
     return hmac.compare_digest(base64.b64encode(digest).decode(), signature or "")

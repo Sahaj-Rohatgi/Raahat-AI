@@ -1,0 +1,14 @@
+.git
+.github
+.venv
+venv
+node_modules
+tests
+Claude outputs
+**/__pycache__
+**/*.pyc
+**/.env
+*.db
+*.md
+!backend/requirements.txt
+.DS_Store

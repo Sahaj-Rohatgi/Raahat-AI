@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 
 os.environ["NLP_SEMANTIC_ENABLED"] = "0"
 
+from backend import config
 from backend.ml.predict import assess
 from backend.services.chatbot import reply
 
@@ -72,8 +73,12 @@ class ChatbotSafetyTests(unittest.TestCase):
         response.read.return_value = json.dumps({"candidates": [{"content": {"parts": [{"text": "Let us prepare one question at a time."}]}}]}).encode()
         response.__enter__.return_value = response
         history = [{"role": "user", "content": "My court hearing is tomorrow."}, {"role": "assistant", "content": "What worries you most?"}]
-        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}), patch("backend.services.chatbot.request.urlopen", return_value=response) as urlopen:
+        with patch.object(config, "GEMINI_API_KEY", "test-key"), patch("backend.services.chatbot.request.urlopen", return_value=response) as urlopen:
             answer = reply("I am worried about speaking.", history)
         payload = json.loads(urlopen.call_args.args[0].data)
         self.assertEqual(answer["provider"], "Gemini")
         self.assertEqual(payload["contents"][0]["parts"][0]["text"], history[0]["content"])
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)

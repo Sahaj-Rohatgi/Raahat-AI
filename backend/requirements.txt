@@ -1,7 +1,22 @@
+# Pinned to a compatible range; the lock for a deployment is the container image digest
+# plus `pip install --require-hashes` against a compiled requirements.lock (see Dockerfile).
 fastapi>=0.115,<1
 uvicorn[standard]>=0.30,<1
+gunicorn>=22,<24
 scikit-learn>=1.5,<2
 joblib>=1.3,<2
 pymysql>=1.1,<2
 python-dotenv>=1.0,<2
 sentence-transformers>=3,<4
+# Shared rate-limit counters and cross-worker alert fan-out. Required for more than one
+# worker process; see backend/services/cache.py.
+redis>=5,<7
+# Schema migrations. init_db() creates the baseline; anything non-additive is a revision.
+alembic>=1.13,<2
+sqlalchemy>=2,<3
+# On-server speech-to-text for voice notes (backend/services/speech.py). Without it, voice
+# notes fall back to Gemini transcription. The model (~145 MB for "base") downloads on first use.
+faster-whisper>=1.0,<2
+soundfile>=0.12,<1
+# Optional server text-to-speech is chatterbox-tts; it is not listed here because it pulls a
+# multi-GB PyTorch stack. The app speaks replies with the browser's voices without it.

@@ -1,0 +1,20 @@
+{
+  "id": "/",
+  "name": "Raahat — Detect Early. Support Better.",
+  "short_name": "Raahat",
+  "description": "A private wellbeing check-in and support platform.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FBF7F1",
+  "theme_color": "#FBF7F1",
+  "icons": [
+    {
+      "src": "/static/img/raahat-logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

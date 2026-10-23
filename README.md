@@ -19,6 +19,7 @@ Built as a working prototype: a FastAPI backend with local ML risk scoring, a de
 - [Project structure](#project-structure)
 - [Phone-in IVR](#phone-in-ivr-no-smartphoneinternet-needed)
 - [Configuration](#configuration)
+- [Running in production](#running-in-production)
 - [API reference](#api-reference)
 - [Testing](#testing)
 - [Known limitations](#known-limitations)
@@ -46,11 +47,32 @@ echo "DATABASE_URL=mysql://<user>:<password>@localhost:3306/raahat_dw" > backend
 # 4. Generate synthetic data + train the models (~30s)
 python3 -m backend.ml.train
 
-# 5. Run
+# 5. Run (to preview on a phone, add `--host 0.0.0.0`; see below)
 python3 -m uvicorn backend.main:app --reload --port 8001
 ```
 
 Open **http://127.0.0.1:8001**
+
+### Preview on a phone
+
+For a live preview on a phone connected to the same Wi-Fi as your development computer:
+
+1. Stop the server, then start it listening on your local network:
+
+   ```bash
+   python3 -m uvicorn backend.main:app --reload --host 0.0.0.0 --port 8001
+   ```
+
+2. Find the computer's local IP address. On macOS, run `ipconfig getifaddr en0` in Terminal. On
+   Windows, run `ipconfig` and use the IPv4 address under the Wi-Fi adapter. On Linux, run
+   `hostname -I` and use an address on the same Wi-Fi network as the phone.
+3. On the phone, open `http://<computer-local-IP>:8001` (for example,
+   `http://192.168.1.25:8001`). Keep the server running while previewing.
+
+If it does not load, check that both devices are on the same Wi-Fi and allow the development
+server through the computer's firewall. Do not use `127.0.0.1` on the phone: that address refers
+to the phone itself. This is for trusted local development only; `0.0.0.0` makes the dev server
+reachable by other devices on that network, so stop it when you are done.
 
 Your prompt shows `(.venv)` when the environment is active. Use `deactivate` to exit it, and re-run
 `source .venv/bin/activate` in any new terminal — including the one you run the tests from.
@@ -97,6 +119,7 @@ real re-login as that role's account, not a cosmetic screen swap.
 - Guided 6-step wellbeing check-in (mood, sleep, safety, anxiety, case pressure, support needs)
 - Trauma-informed support chatbot
 - **One-tap emergency button** that escalates immediately without going through the chatbot
+- **Courtroom Rehearsal** — practise giving evidence with live stress biofeedback (see below)
 - Personal distress trend, support plan, medication and appointment reminders
 
 **Counsellor** — a caseload workbench
@@ -111,6 +134,38 @@ real re-login as that role's account, not a cosmetic screen swap.
 - Drill down national → state → district
 - **Alert queue** with resolve / in-progress / assign actions
 - Anonymised vulnerable-cases roster (IDs and age bands, not names — by design)
+
+### Courtroom Rehearsal
+
+For many witnesses the most frightening moment of a case is testifying, and the first time they see a
+courtroom is the day they have to speak in one. The rehearsal is a practice run built on graded exposure:
+
+1. **Know the room** — an illustrated courtroom; tap the judge, witness box, defence, dock or gallery to
+   learn who sits there and what they will do.
+2. **Resting pulse** — 20 seconds of calm to set a personal baseline.
+3. **Four rounds of questions** (English or Hindi, optionally read aloud): warm-up → your account →
+   cross-examination → pressure. Answered out loud (nothing recorded) or typed.
+4. **It backs off when stress spikes.** If the pulse stays more than ~15% above baseline for 4 seconds — or
+   the person rates a question "Stressed", or taps *I need a pause* — the rehearsal stops, runs a box-breathing
+   exercise, measures how long the pulse takes to settle, and returns with an easier question first.
+5. **Court readiness score (0–100)**, a pulse-through-the-session chart, and progress across sessions
+   ("first session peak 118 bpm → today 92"). Counsellors see the same in the case's *Court readiness* tab,
+   including which round the witness still struggles with.
+
+**Pulse from the camera.** A fingertip over the lens (or a face in front of a webcam) changes colour very
+slightly with every heartbeat. Each frame is reduced to one number in the browser — no image leaves the
+device — and the rate is read from the frequency spectrum of the last 10 seconds, scored on the rate *and*
+its harmonic so a fast, stressed pulse is not misread as half its value. Signals with implausibly large
+swings (movement, screen flicker) or with power spread across the band (noise) read as "no steady signal"
+instead of a confident wrong number. Tested against synthetic pulse waves from 50 to 165 bpm with noise and
+frame jitter: worst error 1.3 bpm. Without a camera, the person rates each question instead; a clearly
+badged **simulated** sensor exists for presenting on a machine without a usable camera, and is recorded as
+such. It is a wellness estimate, never a medical reading.
+
+**Privacy and safety.** Practice answers are never stored and do not move the distress score — only the
+session measurements are saved (`rehearsal_sessions`). The one exception mirrors the chat: a typed answer
+that the deterministic safety router reads as urgent is a real disclosure, and is escalated exactly like a
+chat message. The readiness score is a short explainable rule (`database.rehearsal_readiness`), not a model.
 
 ### The safety net
 
@@ -173,31 +228,50 @@ that were never computed.
 
 ```
 .
-├── raahat.html          # entire frontend: React + Tailwind, JSX compiled in-browser
-├── static/vendor/              # React, ReactDOM, Babel, Tailwind served locally (works offline)
-├── README.md
+├── raahat.html                 # the authored frontend: React + Tailwind, JSX in one file
+├── build.mjs                   # transpiles it ahead of time into static/app.<hash>.js
+├── static/vendor/              # React, ReactDOM, Tailwind served locally (works offline)
+├── Dockerfile                  # multi-stage: frontend build, wheel build, slim runtime
+├── docker-compose.yml          # app + MySQL + Redis, production-shaped
+├── gunicorn.conf.py            # worker count, timeouts, recycling
+├── alembic/                    # schema migrations (non-additive changes live here)
+├── .github/workflows/ci.yml    # tests, browser suite, dependency audit, secret scan, image build
 ├── backend/
-│   ├── main.py                 # FastAPI app: routes, request validation, authorization
-│   ├── auth.py                 # demo login, bearer sessions, role dependencies
-│   ├── database.py             # MySQL schema, migrations, queries
-│   ├── requirements.txt
-│   ├── .env.example
+│   ├── main.py                 # FastAPI app: routes, middleware, lifecycle
+│   ├── config.py               # all configuration, and the production safety checks
+│   ├── auth.py                 # sign-in, bearer sessions, role dependencies
+│   ├── database.py             # MySQL schema, pool, queries, retention, erasure
+│   ├── admin.py                # operational CLI: accounts, sessions, purges, preflight
+│   ├── observability.py        # structured logging, request ids, Prometheus metrics
 │   ├── ml/
 │   │   ├── generate.py         # synthetic data (English + Hindi + Hinglish)
 │   │   ├── train.py            # trains and persists all four models
 │   │   ├── predict.py          # shared inference + explanations
+│   │   ├── forecast.py         # trajectory projection from stored assessments
 │   │   ├── data/               # generated CSV (gitignored)
 │   │   └── artifacts/          # trained models (gitignored)
 │   └── services/
-│       ├── chatbot.py          # multilingual safety routing + optional Gemini replies
-│       └── notify.py           # escalation notifications
+│       ├── chatbot.py          # multilingual safety routing + Gemini replies (circuit-broken)
+│       ├── notify.py           # escalation delivery, retries, unacknowledged-alert sweeper
+│       ├── realtime.py         # WebSocket fan-out, Redis pub/sub across workers
+│       ├── ratelimit.py        # shared sliding-window limits
+│       ├── cache.py            # Redis connection, with a documented single-process fallback
+│       └── twilio_ivr.py       # TwiML + webhook signature verification (fails closed)
 └── tests/
-    ├── test_api.py             # 43 backend checks (stdlib only)
-    └── e2e.mjs                 # 23 browser checks (Playwright)
+    ├── test_api.py             # 62 backend checks (stdlib only)
+    ├── test_production.py      # 37 hardening checks (config, sessions, CSP, erasure)
+    ├── test_chatbot.py         # safety-router regressions
+    ├── test_voice.py           # voice transcription
+    └── e2e.mjs                 # 23 browser checks (Playwright, against the built page)
 ```
 
-**Database tables:** `cases`, `events`, `alerts`, `interventions`, `case_notes`.
-Schema migrations run automatically on startup — existing databases are upgraded in place, not dropped.
+**Database tables:** `cases`, `events`, `alerts`, `interventions`, `case_notes`, `chat_messages`,
+`chat_feedback`, `users`, `sessions`, `audit_log`, `consent`, `followups`, `privacy_requests`,
+`phone_links`, `case_assignments`, `rehearsal_sessions`.
+
+The baseline schema, additive columns and indexes are created on startup under a MySQL advisory
+lock, so concurrent workers in a rolling deploy cannot race each other. Anything non-additive is an
+Alembic revision (`alembic upgrade head`), run once before workers start.
 
 ---
 
@@ -310,16 +384,22 @@ exercised with `curl` locally; **set the token before pointing a real number at 
 
 ## Configuration
 
-Copy `backend/.env.example` to `backend/.env`. All values are optional.
+Copy `backend/.env.example` to `backend/.env` — it documents every variable inline. Everything is
+optional for local development; [Running in production](#running-in-production) lists what becomes
+mandatory, and `python3 -m backend.config` checks it for you.
+
+The ones worth knowing about locally:
 
 | Variable | Effect |
 |---|---|
+| `APP_ENV` | `development` (default) keeps demo seeding, `/docs` and the raw-table inspector on. `production` makes every default strict and refuses to start if anything is unsafe. |
 | `GEMINI_API_KEY` | Enables Gemini-generated replies for **non-urgent** chat only. Urgent messages always use local deterministic responses. |
 | `GEMINI_MODEL` | Defaults to `gemini-2.5-flash`. |
-| `ALERT_WEBHOOK_URL` | If set, High/Critical escalations are POSTed here as JSON. |
-| `IVR_API_KEY` | Shared secret the local FreeSWITCH dialplan sends on `/api/ivr/*` calls. **No default** — if it is unset, every `/api/ivr/*` call is rejected with 403. Only needed for the phone-in IVR (see above). |
-| `TWILIO_AUTH_TOKEN` | Verifies the signature on `/api/twilio/*` webhooks. Unset = signature check skipped (local testing only). |
-| `TWILIO_VOICE` | Twilio text-to-speech voice for IVR prompts. Defaults to `Polly.Aditi` (Indian English). |
+| `REDIS_URL` | Shares rate-limit counters and WebSocket alert fan-out across workers. Required for more than one worker. |
+| `ALERT_WEBHOOK_URL` | High/Critical escalations are POSTed here, off the request path, with retries. |
+| `IVR_API_KEY` | Shared secret the FreeSWITCH dialplan sends on `/api/ivr/*`. Unset (or `ENABLE_IVR=0`) and those routes do not exist. |
+| `TWILIO_AUTH_TOKEN` | Verifies the signature on `/api/twilio/*` webhooks. **Without it every webhook is rejected** — those endpoints can raise Critical escalations, so they fail closed. |
+| `SEED_DEMO_DATA` | Creates the three demo logins below. Refused in production. |
 
 Load them when starting the server:
 
@@ -329,6 +409,104 @@ python3 -m uvicorn backend.main:app --reload --port 8001 --env-file backend/.env
 
 Gemini replies are additionally guarded: the response is rejected if it exceeds a length cap or contains
 false claims (e.g. "I contacted someone for you", or promises of confidentiality).
+
+---
+
+---
+
+## Running in production
+
+The application refuses to start with `APP_ENV=production` if any of the following is unsafe
+(`backend/config.py`), so a misconfigured deployment fails immediately and loudly rather than
+running in a state that looks fine:
+
+| Must be true | Why |
+| --- | --- |
+| `SEED_DEMO_DATA=0` | The seeded logins have passwords published in this README, and one of them is an administrator. |
+| `SESSION_SECRET` ≥ 32 random chars | Pepper for session-token hashing. Rotating it signs everyone out — the correct response to a suspected token leak. |
+| `ALLOWED_HOSTS` set | Blocks Host-header poisoning behind a proxy. |
+| `ENABLE_DB_INSPECTOR=0` | `/api/db` returns participant chat transcripts. |
+| `TWILIO_AUTH_TOKEN` set, if Twilio is on | Webhook signature checking **fails closed**; those endpoints can raise Critical escalations. |
+| `IVR_API_KEY` ≥ 32 chars, if the IVR is on | Same reason, for the FreeSWITCH transport. |
+
+Check a deployment before shipping it:
+
+```bash
+python3 -m backend.config          # configuration only
+python3 -m backend.admin preflight # configuration + database + bundle + webhook warnings
+```
+
+### Deploy
+
+```bash
+# 1. Build the frontend (no in-browser compiler, strict CSP)
+npm ci && npm run build
+
+# 2. Apply schema migrations — once, before any worker starts
+alembic upgrade head
+
+# 3. Create the first real administrator (the password is generated, not typed)
+python3 -m backend.admin create-user --email ops@example.org --role admin --name "Ops"
+
+# 4. Serve
+gunicorn backend.main:app -c gunicorn.conf.py
+```
+
+Or the whole stack — app, MySQL, Redis — with `docker compose up --build`. The image pins
+`APP_ENV=production`, `SEED_DEMO_DATA=0` and `ENABLE_DB_INSPECTOR=0` so it cannot be started
+with demo accounts, and runs as an unprivileged user.
+
+### Required infrastructure
+
+- **TLS terminates upstream.** The app sets HSTS (`ENABLE_HSTS`) but never terminates TLS itself.
+  Set `TRUST_PROXY_HEADERS=1` **only** when a proxy you control is in front — otherwise a client can
+  forge `X-Forwarded-For` and give itself a fresh rate-limit bucket per request.
+- **Redis is required for more than one worker.** Rate-limit counters and the WebSocket alert
+  fan-out are shared through it. Without it, the effective rate limit is multiplied by the worker
+  count and an escalation only reaches dashboards connected to the worker that raised it.
+- **A dedicated MySQL account**, not root, with `SELECT,INSERT,UPDATE,DELETE` and no DDL rights
+  once migrations have been applied.
+- **`DB_POOL_SIZE` × `WEB_CONCURRENCY` must stay below the server's `max_connections`.**
+
+### Operating it
+
+| Concern | How |
+| --- | --- |
+| Health | `/healthz` (liveness, no dependencies) and `/readyz` (readiness, checks the database) |
+| Metrics | `/metrics`, Prometheus format, restricted to private/loopback addresses in production |
+| Logs | One JSON object per line with `LOG_FORMAT=json`, every line carrying the request id also returned as `X-Request-ID`. No message bodies or transcripts are ever logged. |
+| Errors | Set `SENTRY_DSN` (with `send_default_pii=False`) |
+| Escalation delivery | `ALERT_WEBHOOK_URL` is POSTed off the request path with retries; a permanent failure logs at ERROR and increments `raahat_escalation_delivery_total{outcome="failed"}`. **Alert on that metric** — it means on-call was not paged. |
+| Unacknowledged alerts | A High/Critical alert not acknowledged within `ESCALATION_ACK_SECONDS` is automatically re-paged. Staff acknowledge via `POST /api/alerts/{id}/ack`; time-to-acknowledgement is the service level worth tracking. |
+| Retention | `DATA_RETENTION_DAYS` plus a scheduled `python3 -m backend.admin purge-data` |
+| Session hygiene | `python3 -m backend.admin purge-sessions` on a schedule |
+| Leaver process | `python3 -m backend.admin deactivate --email …` revokes every live session immediately |
+
+### Data protection
+
+A participant can export everything held about them (`GET /api/privacy/export`) and request
+erasure (`POST /api/privacy/delete-request`). **Erasure is executed, not queued**: participant
+content is deleted across every table in one transaction, the login is deactivated, live sessions
+are revoked, and the case row is reduced to a tombstone so its id can never be re-used. The
+tombstone is deliberate — safeguarding history has to remain attributable, and a recycled case id
+would silently inherit someone else's record.
+
+Phone numbers are stored as keyed hashes, never in the clear. Before going live you still need a
+DPIA, a stated retention period (`DATA_RETENTION_DAYS`), a documented breach-notification path,
+and — under the DPDP Act 2023 — verified consent records and a named grievance officer.
+
+### Before real participants
+
+The engineering is production-shaped; the clinical governance is not something code can supply:
+
+1. A labelled evaluation set with **false-negative rate** as the primary metric — missing someone
+   in danger is the failure that matters, not a false alarm.
+2. Model calibration, drift monitoring, and a versioned model registry.
+3. A staffed on-call rota with an acknowledgement SLA, tested end to end against
+   `ALERT_WEBHOOK_URL`.
+4. Clinical and legal sign-off on the escalation thresholds and on every piece of user-facing
+   safety copy.
+5. MFA for staff accounts, and a penetration test.
 
 ---
 
@@ -375,13 +553,26 @@ Start the server first, then in a second terminal (activate the venv there too):
 ```bash
 source .venv/bin/activate
 
-# Backend: auth, access control, validation, concurrency, persistence (43 checks, no extra deps)
+# Backend: auth, access control, validation, concurrency, persistence (44 checks, no extra deps)
 python3 tests/test_api.py
 
+# Production hardening: config refusal, session-token storage, CSP headers, participant
+# scoping, alert acknowledgement, and that an erasure request actually erases (37 checks)
+python3 tests/test_production.py
+
+# Safety router and voice transcription (unit tests, no server needed)
+python3 tests/test_chatbot.py
+python3 tests/test_voice.py
+
 # Frontend: full browser click-through of all three roles (23 checks)
-npm install playwright && npx playwright install chromium
+npm install && npx playwright install chromium
 node tests/e2e.mjs
 ```
+
+All of the above run on every push and pull request — see `.github/workflows/ci.yml`, which
+also builds the container image, audits dependencies for known vulnerabilities, scans for
+committed secrets, and asserts that a production configuration carrying demo accounts is
+**refused** rather than started.
 
 Both suites clean up after themselves and leave the demo database as they found it.
 
@@ -465,11 +656,10 @@ fetch('/api/dashboard', {headers:{Authorization:'Bearer '+AUTH_TOKEN}}).then(r=>
 
 Being explicit about what this prototype does **not** do:
 
-- **Identity is demo-scale.** Users and sessions live in MySQL (so logins survive a restart) and
-  passwords are salted scrypt hashes, but there is no sign-up, password reset, or MFA — this is real
-  credential checking and real authorization, not a production identity system.
-- **Rate limits are per-process and in-memory.** They reset on restart and are not shared across
-  workers; a real deployment would keep the counters in Redis.
+- **There is no self-service identity.** Accounts are created by an operator
+  (`python3 -m backend.admin create-user`), and there is no sign-up, password reset flow, or MFA.
+  Sessions are server-side, token hashes are stored rather than tokens, and an account can be
+  signed out everywhere — but MFA for staff accounts is the obvious next requirement.
 - **All data is synthetic.** The models are trained on generated examples, not real case data, and their
   accuracy figures mean nothing clinically.
 - **District/state aggregates in the admin view are simulated.** They exist to demonstrate the
@@ -481,8 +671,14 @@ Being explicit about what this prototype does **not** do:
   `/ws/alerts`; everything else (case lists, notes, interventions) still refreshes on action, not via polling.
 - **Hindi/Hinglish coverage is a starting point.** The safety patterns and training examples cover common
   phrasings, not the full range of dialects, code-switching, or regional languages beyond Hindi.
-- **The frontend is a single file** compiled in-browser via Babel — fine for a prototype, but it should move
-  to a real build step before it grows further.
+- **The frontend is a single authored file.** `npm run build` transpiles it ahead of time into a
+  content-hashed bundle, so production ships no compiler and runs under a strict
+  `script-src 'self'` CSP — but it is still one 2,500-line file, and it should be split into
+  modules before it grows further.
+- **Model quality is the open question.** The classifiers are trained on generated examples. Before
+  this is used with real people it needs a labelled evaluation set with **false-negative rate** as
+  the primary metric, calibration, drift monitoring, and clinical sign-off — see
+  [Running in production](#running-in-production).
 
 ### Safety commitments in the current build
 

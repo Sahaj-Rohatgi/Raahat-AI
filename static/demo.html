@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Raahat — Phone Demo</title>
+<link rel="stylesheet" href="/static/demo.css"/>
+</head>
+<body>
+  <main class="stage">
+    <section class="intro">
+      <h1>Raahat</h1>
+      <p>Live demo, as it runs on a phone.</p>
+      <div class="controls">
+        <button id="reload" type="button">Reload app</button>
+        <button id="rotate" type="button">Rotate</button>
+      </div>
+    </section>
+    <div class="phone-wrap" id="wrap">
+      <div class="phone" id="phone">
+        <div class="notch"></div>
+        <iframe id="app" src="/" title="Raahat app" allow="camera; microphone; clipboard-write"></iframe>
+        <div class="home-bar"></div>
+      </div>
+    </div>
+  </main>
+  <script src="/static/demo.js"></script>
+</body>
+</html>

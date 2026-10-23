@@ -19,7 +19,10 @@
     same as the victim app's one-tap emergency button).
 
     Every collected answer is POSTed straight to the FastAPI backend's /api/ivr/*
-    endpoints (see backend/main.py) using the system `curl`, so the exact same ML
+    endpoints (see backend/main.py) using the system `curl`. The caller's number rides
+    along as ?caller=, and the backend resolves it to the case that number is registered
+    to (database.link_phone) — a call from an unregistered number is refused rather than
+    written into somebody else's record. The exact same ML
     scoring / safety-net / alerting / WebSocket-push pipeline runs as for a web
     check-in or chat message — this dialplan carries no business logic of its own.
   -->
@@ -41,7 +44,7 @@
       <action application="read" data="1 1 @@APP_DIR@@/backend/ivr/prompts/ask_safety.wav safety 10000 #"/>
       <action application="read" data="1 1 @@APP_DIR@@/backend/ivr/prompts/ask_anxiety.wav anxiety 10000 #"/>
       <action application="read" data="1 1 @@APP_DIR@@/backend/ivr/prompts/ask_pressure.wav case_pressure 10000 #"/>
-      <action application="system" data='curl -s --max-time 5 -X POST -H "Content-Type: application/json" -H "X-IVR-Key: @@IVR_KEY@@" -d "{\"mood\":${mood},\"sleep\":${sleep},\"safety\":${safety},\"anxiety\":${anxiety},\"case_pressure\":${case_pressure},\"case_id\":\"7934\"}" @@API_BASE@@/api/ivr/checkin -o /tmp/raahat_ivr_checkin_response.json'/>
+      <action application="system" data='curl -s --max-time 5 -X POST -H "Content-Type: application/json" -H "X-IVR-Key: @@IVR_KEY@@" -d "{\"mood\":${mood},\"sleep\":${sleep},\"safety\":${safety},\"anxiety\":${anxiety},\"case_pressure\":${case_pressure}}" "@@API_BASE@@/api/ivr/checkin?caller=${caller_id_number}" -o /tmp/raahat_ivr_checkin_response.json'/>
       <action application="playback" data="@@APP_DIR@@/backend/ivr/prompts/checkin_done.wav"/>
       <action application="hangup"/>
     </condition>
@@ -49,7 +52,7 @@
 
   <extension name="raahat_ivr_sos">
     <condition field="destination_number" expression="^ivr_9$">
-      <action application="system" data='curl -s --max-time 5 -X POST -H "Content-Type: application/json" -H "X-IVR-Key: @@IVR_KEY@@" -d "{\"note\":\"Emergency reported via IVR phone keypad\"}" "@@API_BASE@@/api/ivr/sos?case_id=7934" -o /tmp/raahat_ivr_sos_response.json'/>
+      <action application="system" data='curl -s --max-time 5 -X POST -H "Content-Type: application/json" -H "X-IVR-Key: @@IVR_KEY@@" -d "{\"note\":\"Emergency reported via IVR phone keypad\"}" "@@API_BASE@@/api/ivr/sos?caller=${caller_id_number}" -o /tmp/raahat_ivr_sos_response.json'/>
       <action application="playback" data="@@APP_DIR@@/backend/ivr/prompts/sos_done.wav"/>
       <action application="hangup"/>
     </condition>

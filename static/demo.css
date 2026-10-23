@@ -1,0 +1,22 @@
+:root { --w: 390px; --h: 844px; --bezel: 14px; }
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: radial-gradient(circle at 30% 20%, #1e293b, #0b1120); color: #e2e8f0;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif; overflow: hidden; }
+.stage { height: 100%; display: flex; align-items: center; justify-content: center; gap: 72px; padding: 16px; }
+.intro h1 { font-size: 44px; margin: 0 0 8px; }
+.intro p { margin: 0 0 20px; color: #94a3b8; font-size: 18px; }
+.controls { display: flex; gap: 10px; }
+.controls button { background: #1e293b; color: #e2e8f0; border: 1px solid #334155; border-radius: 8px;
+  padding: 8px 14px; cursor: pointer; font-size: 14px; }
+.controls button:hover { background: #334155; }
+.phone-wrap { flex: none; }
+.phone { position: relative; width: calc(var(--w) + var(--bezel) * 2); height: calc(var(--h) + var(--bezel) * 2);
+  background: #05070d; border-radius: 56px; padding: var(--bezel);
+  box-shadow: 0 0 0 2px #475569, 0 40px 90px rgba(0,0,0,.6); }
+.phone iframe { width: var(--w); height: var(--h); border: 0; border-radius: 42px; background: #fff; display: block; }
+.notch { position: absolute; top: calc(var(--bezel) + 10px); left: 50%; width: 110px; height: 28px; margin-left: -55px;
+  background: #05070d; border-radius: 20px; z-index: 2; pointer-events: none; }
+.home-bar { position: absolute; bottom: calc(var(--bezel) + 8px); left: 50%; width: 130px; height: 5px; margin-left: -65px;
+  background: rgba(0,0,0,.55); border-radius: 3px; z-index: 2; pointer-events: none; }
+@media (max-width: 900px) { .intro { display: none; } }

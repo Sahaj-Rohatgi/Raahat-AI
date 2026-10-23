@@ -1,0 +1,55 @@
+# Local production-shaped stack: the app as it runs in a container, behind the same MySQL
+# and Redis it needs in production. Not a production deployment in itself — secrets here
+# come from a .env file, and TLS is expected to terminate at whatever fronts this.
+services:
+  db:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: raahat_dw
+      MYSQL_USER: raahat
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?set MYSQL_PASSWORD}
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  app:
+    build: .
+    depends_on:
+      db: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    environment:
+      APP_ENV: production
+      DATABASE_URL: mysql://raahat:${MYSQL_PASSWORD}@db:3306/raahat_dw
+      REDIS_URL: redis://redis:6379/0
+      SESSION_SECRET: ${SESSION_SECRET:?generate with python3 -c 'import secrets; print(secrets.token_urlsafe(48))'}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1}
+      ALERT_WEBHOOK_URL: ${ALERT_WEBHOOK_URL:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      TRUST_PROXY_HEADERS: "1"
+      DATA_RETENTION_DAYS: ${DATA_RETENTION_DAYS:-0}
+      # TLS terminates upstream in a real deployment; off here so http://localhost works.
+      ENABLE_HSTS: "0"
+    ports:
+      - "8000:8000"
+    # Migrations run once, before the app serves traffic. Running them from inside the app
+    # process would race across workers and across rolling-deploy replicas.
+    command: >
+      sh -c "alembic upgrade head && gunicorn backend.main:app -c gunicorn.conf.py"
+
+volumes:
+  db-data:

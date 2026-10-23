@@ -1,0 +1,133 @@
+name: CI
+
+on:
+  push: {branches: [main]}
+  pull_request:
+
+# The token only ever needs to read this repository.
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: ci-root
+          MYSQL_DATABASE: raahat_dw
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -pci-root"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+      redis:
+        image: redis:7
+        ports: ["6379:6379"]
+        options: --health-cmd="redis-cli ping" --health-interval=10s --health-retries=5
+    env:
+      DATABASE_URL: mysql://root:ci-root@127.0.0.1:3306/raahat_dw
+      REDIS_URL: redis://127.0.0.1:6379/0
+      SESSION_SECRET: ci-session-secret-that-is-long-enough-for-validation
+      IVR_API_KEY: ci-ivr-key-that-is-at-least-32-characters-long
+      TWILIO_AUTH_TOKEN: ci-twilio-token
+      ENABLE_IVR: "1"
+      ENABLE_TWILIO: "1"
+      RAAHAT_TEST_BASE: http://127.0.0.1:8001
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12", cache: pip}
+      - run: pip install -r backend/requirements.txt
+      - name: Train the model artifacts the API depends on
+        run: python3 -m backend.ml.train
+      - run: alembic upgrade head
+      - name: Start the API
+        run: |
+          python3 -m uvicorn backend.main:app --port 8001 --log-level warning &
+          for _ in $(seq 1 40); do
+            curl -fsS http://127.0.0.1:8001/healthz >/dev/null && exit 0
+            sleep 1
+          done
+          echo "server did not become healthy" && exit 1
+      - run: python3 tests/test_api.py
+      - run: python3 tests/test_production.py
+      - run: python3 tests/test_chatbot.py
+      - run: python3 tests/test_voice.py
+
+  frontend:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: ci-root
+          MYSQL_DATABASE: raahat_dw
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -pci-root"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    env:
+      DATABASE_URL: mysql://root:ci-root@127.0.0.1:3306/raahat_dw
+      SESSION_SECRET: ci-session-secret-that-is-long-enough-for-validation
+      RAAHAT_TEST_BASE: http://127.0.0.1:8001
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: "22", cache: npm}
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12", cache: pip}
+      - run: npm ci || npm install
+      - name: Build the production bundle
+        run: npm run build
+      - name: Fail if the built page still ships a compiler
+        run: |
+          if grep -qi "babel" static/index.html; then echo "Babel survived the build"; exit 1; fi
+          test -s static/app.js
+      # The browser suite runs against the built page under the strict production CSP, so a
+      # policy that would break the real app fails here rather than in front of a user.
+      - run: pip install -r backend/requirements.txt
+      - run: python3 -m backend.ml.train
+      - run: npx playwright install --with-deps chromium
+      - name: Start the API and run the browser suite
+        run: |
+          python3 -m uvicorn backend.main:app --port 8001 --log-level warning &
+          for _ in $(seq 1 40); do
+            curl -fsS http://127.0.0.1:8001/healthz >/dev/null && break
+            sleep 1
+          done
+          node tests/e2e.mjs
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - name: Dependency vulnerabilities
+        run: |
+          pip install pip-audit
+          pip-audit -r backend/requirements.txt --strict || exit 1
+      - name: Secret scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Refuse a production config that would start with demo accounts
+        env:
+          APP_ENV: production
+          DATABASE_URL: mysql://app:pw@db:3306/raahat_dw
+          SESSION_SECRET: ci-session-secret-that-is-long-enough-for-validation
+          ALLOWED_HOSTS: example.org
+          SEED_DEMO_DATA: "1"
+        run: |
+          if python3 -m backend.config; then
+            echo "config.validate() accepted SEED_DEMO_DATA=1 in production" && exit 1
+          fi
+          echo "correctly refused"
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t raahat:ci .

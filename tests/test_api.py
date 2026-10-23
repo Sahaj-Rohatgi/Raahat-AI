@@ -23,7 +23,8 @@ import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from backend.database import conn  # noqa: E402  (needs sys.path tweak above)
+from backend import database  # noqa: E402  (needs sys.path tweak above)
+from backend.database import conn  # noqa: E402
 
 BASE = os.getenv("RAAHAT_TEST_BASE", "http://127.0.0.1:8001")
 
@@ -68,10 +69,18 @@ def stream_call(path: str, body: dict, token: str) -> tuple[int, str]:
         return exc.code, exc.read().decode()
 
 
-def form_call(path: str, fields: dict[str, str], signed: bool = True) -> tuple[int, str]:
-    """POST a Twilio-shaped webhook: form-encoded body, optionally carrying the same
-    HMAC-SHA1 signature Twilio sends. Signing is a no-op when TWILIO_AUTH_TOKEN is unset,
-    which is also when the server skips verification."""
+# The number the IVR tests call from. It is linked to the demo case below; an unlinked
+# number is refused, which is the point of the mapping.
+TEST_CALLER = "+919999000001"
+
+
+def form_call(path: str, fields: dict[str, str], signed: bool = True, caller: str | None = TEST_CALLER) -> tuple[int, str]:
+    """POST a Twilio-shaped webhook: form-encoded body, carrying the same HMAC-SHA1
+    signature Twilio sends. The server now fails closed without a token, so the suite
+    must run with TWILIO_AUTH_TOKEN set."""
+    fields = dict(fields)
+    if caller:
+        fields.setdefault("From", caller)
     body = urllib.parse.urlencode(fields).encode()
     headers = {"Content-Type": "application/x-www-form-urlencoded"}
     token = os.getenv("TWILIO_AUTH_TOKEN", "").strip()
@@ -158,6 +167,15 @@ check("valid support option accepted",
 check("invalid risk band rejected", call("/api/cases/7934/override", {"score": 50, "risk_band": "Extreme"}, "PATCH", counsellor)[0] == 422)
 check("out-of-range score rejected", call("/api/cases/7934/override", {"score": 500, "risk_band": "Low"}, "PATCH", counsellor)[0] == 422)
 
+print("\n=== Public landing-page demo ===")
+status, demo = call("/api/demo/assess", {"message": "I feel calm today and I talked to my family."})
+check("demo assess works without a login", status == 200 and demo.get("would_alert") is False, str(demo))
+status, demo = call("/api/demo/assess", {"message": "I don't want to live anymore."})
+check("demo applies the chat safety router to self-harm",
+      status == 200 and demo["urgent"] and demo["risk_band"] == "Critical" and demo["would_alert"], str(demo))
+check("demo rejects a blank message", call("/api/demo/assess", {"message": "   "})[0] == 422)
+check("demo caps message length", call("/api/demo/assess", {"message": "a" * 501})[0] == 422)
+
 print("\n=== Not-found handling ===")
 check("unknown case returns 404", call("/api/cases/99999", token=admin)[0] == 404)
 check("unknown alert returns 404", call("/api/alerts/999999", {"status": "Resolved"}, "PATCH", admin)[0] == 404)
@@ -182,6 +200,12 @@ _, dash = call("/api/dashboard", token=counsellor)
 check("note is stored and returned by the API",
       any(n["case_id"] == note_case and "Persisted note" in n["text"] for n in dash["notes"]))
 
+call("/api/cases/7934/notes", {"text": "Internal: discussed safety plan"}, token=counsellor)
+call("/api/cases/7934/notes", {"text": "You did really well today, Asha.", "share": True}, token=counsellor)
+_, mine = call("/api/me", token=victim)
+check("participant sees a note shared with them", any("did really well" in n["text"] for n in mine["notes"]))
+check("participant never sees an internal case note", not any("Internal:" in n["text"] for n in mine["notes"]))
+
 print("\n=== Report export ===")
 status, report = call(f"/api/cases/{note_case}/report", token=counsellor)
 check("report generates for a case with no events", status == 200 and "Raahat case report" in report)
@@ -192,6 +216,13 @@ status, payload = call(f"/api/cases/{note_case}/sos", {"note": "Test suite SOS"}
 check("SOS escalates the case to Critical", status == 200 and payload["risk_band"] == "Critical" and payload["score"] == 100)
 
 print("\n=== Twilio phone IVR (TwiML webhooks) ===")
+# A phone check-in is written against the case the calling number belongs to, so the test
+# number has to be registered first — exactly as a real participant's would be.
+database.link_phone(TEST_CALLER, "7934", "test-suite")
+
+check("an unregistered caller is refused rather than defaulted to someone else's case",
+      form_call("/api/twilio/menu", {"Digits": "9"}, caller="+919999999999")[0] == 404)
+
 status, twiml = form_call("/api/twilio/voice", {"CallSid": "CAtest"})
 check("call entry point returns a TwiML menu",
       status == 200 and "<Gather" in twiml and 'action="/api/twilio/menu"' in twiml)
@@ -219,8 +250,55 @@ check("menu digit 9 escalates to Critical",
       status == 200 and "emergency alert has been sent" in twiml
       and call("/api/cases/7934", token=counsellor)[1]["risk_band"] == "Critical")
 
-check("an unsigned webhook is rejected once an auth token is configured",
-      form_call("/api/twilio/menu", {"Digits": "9"}, signed=False)[0] == 403 if os.getenv("TWILIO_AUTH_TOKEN") else True)
+check("an unsigned webhook is rejected",
+      form_call("/api/twilio/menu", {"Digits": "9"}, signed=False)[0] == 403)
+
+print("\nCourtroom rehearsal")
+rehearsal = {"sensor": "camera", "duration_seconds": 420, "questions_answered": 12, "levels_completed": 4,
+             "calm_level": 3, "baseline_bpm": 74, "peak_bpm": 109, "recovery_seconds": 40, "spikes": 1,
+             "pauses": 0, "self_rating_avg": None,
+             "timeline": [{"t": t, "bpm": 74 + t // 30, "level": 1 + min(3, t // 105), "stress": False} for t in range(0, 420, 2)]}
+check("staff cannot submit a rehearsal session", call("/api/rehearsal/sessions", rehearsal, token=counsellor)[0] == 403)
+status, saved = call("/api/rehearsal/sessions", rehearsal, token=victim)
+created_rehearsals = [saved["id"]] if status == 200 else []
+# calm through round 3 (60) + 12 questions (10) + settled inside a minute (10)
+check("a rehearsal session is saved with a server-computed readiness",
+      status == 200 and saved["readiness"] == 80 and saved["case_id"] == "7934", str(saved))
+check("calm level above completed rounds is rejected",
+      call("/api/rehearsal/sessions", {**rehearsal, "levels_completed": 2}, token=victim)[0] == 422)
+check("an oversized rehearsal timeline is rejected",
+      call("/api/rehearsal/sessions", {**rehearsal, "timeline": rehearsal["timeline"] * 3}, token=victim)[0] == 422)
+check("an unknown sensor is rejected",
+      call("/api/rehearsal/sessions", {**rehearsal, "sensor": "smartwatch"}, token=victim)[0] == 422)
+status, own = call("/api/rehearsal/sessions", token=victim)
+check("participant can list their own rehearsals",
+      status == 200 and any(r["id"] in created_rehearsals and len(r["timeline"]) == 210 for r in own))
+status, staff_view = call("/api/cases/7934/rehearsals", token=counsellor)
+check("counsellor sees the case's rehearsals", status == 200 and any(r["id"] in created_rehearsals for r in staff_view))
+check("participant cannot use the staff rehearsal route", call("/api/cases/7934/rehearsals", token=victim)[0] == 403)
+check("privacy export includes rehearsal sessions",
+      any(r["id"] in created_rehearsals for r in call("/api/privacy/export", token=victim)[1].get("rehearsals", [])))
+
+before_messages = database.get_chat_history("7934", limit=200)
+status, verdict = call("/api/rehearsal/check", {"text": "I was standing near the gate, about ten metres away"}, token=victim)
+check("an ordinary practice answer is not urgent", status == 200 and verdict["urgent"] is False)
+check("a practice answer is not written to the chat history",
+      database.get_chat_history("7934", limit=200) == before_messages)
+status, verdict = call("/api/rehearsal/check", {"text": "I want to hurt myself after this"}, token=victim)
+_, dash = call("/api/dashboard", token=counsellor)
+check("an urgent practice answer escalates like a chat message",
+      status == 200 and verdict["urgent"] is True and verdict.get("reply")
+      and any(a["case_id"] == "7934" and a["severity"] == "Critical" and "rehearsal" in a["reason"] for a in dash["alerts"]))
+check("staff cannot use the rehearsal safety check",
+      call("/api/rehearsal/check", {"text": "hello"}, token=counsellor)[0] == 403)
+
+with urllib.request.urlopen(BASE + "/healthz", timeout=10) as response:
+    check("camera is permitted for this origin only", "camera=(self)" in response.headers.get("Permissions-Policy", ""))
+
+if created_rehearsals:
+    with conn() as db:
+        db.execute("DELETE FROM rehearsal_sessions WHERE id IN (%s)" % ",".join(["%s"] * len(created_rehearsals)),
+                   tuple(created_rehearsals))
 
 cleanup("ConcurrencyTest")
 cleanup("NotesTest")
